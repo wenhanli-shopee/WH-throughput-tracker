@@ -1,0 +1,2588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WH Capacity & Throughput Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f8fc;--surface:#fff;--surface2:#f0f3f8;--surface3:#e6eaf2;
+  --border:#dde3ef;--border2:#c8d0e0;
+  --ib:#1a6fd4;--ib-l:#e8f1fd;--inv:#c75b00;--inv-l:#fdf0e6;
+  --ob:#1a7a4a;--ob-l:#e6f5ed;
+  --danger:#d42b2b;--warn:#c47a00;--ok:#1a7a4a;--muted:#6b7a96;
+  --text:#111928;--text2:#374151;
+  --mono:'JetBrains Mono',monospace;--sans:Arial,sans-serif;
+  --sh:0 2px 12px rgba(0,0,0,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+
+/* LANDING */
+#land{min-height:100vh;background:linear-gradient(135deg,#0f1f48,#1a3a72,#0e2d5a);display:flex;align-items:center;justify-content:center;padding:40px;}
+.l-inner{max-width:800px;width:100%;text-align:center;}
+.l-badge{display:inline-block;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#a8c8ff;font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:24px;}
+.l-title{font-size:34px;font-weight:700;color:#fff;letter-spacing:-1px;line-height:1.15;margin-bottom:10px;}
+.l-title span{color:#60a5fa;}
+.l-sub{color:rgba(255,255,255,.6);font-size:13px;line-height:1.7;max-width:540px;margin:0 auto 32px;}
+.l-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:32px;}
+.l-card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:14px 10px;text-align:center;}
+.l-card-icon{font-size:20px;margin-bottom:5px;}
+.l-card-title{font-size:11px;font-weight:600;color:#e0eeff;margin-bottom:3px;}
+.l-card-sub{font-size:10px;color:rgba(255,255,255,.4);line-height:1.4;}
+.wh-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px;}
+.wh-btn{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);color:#c8deff;font-family:var(--mono);font-size:13px;font-weight:700;padding:9px 24px;border-radius:9px;cursor:pointer;transition:all .2s;letter-spacing:1px;}
+.wh-btn:hover,.wh-btn.sel{background:rgba(96,165,250,.25);border-color:#60a5fa;color:#fff;}
+.go-btn{background:linear-gradient(135deg,#1a6fd4,#60a5fa);color:#fff;font-family:var(--mono);font-size:13px;font-weight:700;padding:12px 40px;border-radius:9px;border:none;cursor:pointer;letter-spacing:2px;text-transform:uppercase;box-shadow:0 4px 20px rgba(26,111,212,.4);}
+
+/* TOPBAR */
+#shell{display:none;}
+.topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:50px;position:sticky;top:0;z-index:200;box-shadow:var(--sh);gap:10px;}
+.tb-home{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ib);background:var(--ib-l);border:1px solid #b8d4f8;padding:4px 12px;border-radius:16px;cursor:pointer;}
+.tb-nav{display:flex;gap:2px;flex:1;}
+.tb-tab{font-size:12px;font-weight:500;color:var(--muted);padding:7px 13px;border-radius:7px;cursor:pointer;border:none;background:none;transition:all .15s;white-space:nowrap;}
+.tb-tab:hover{background:var(--surface2);color:var(--text);}
+.tb-tab.act{background:var(--ib-l);color:var(--ib);font-weight:600;}
+#wh-chips{display:flex;gap:4px;}
+.wh-chip{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:11px;cursor:pointer;border:1.5px solid;transition:all .15s;}
+
+/* STICKY SIM BAR */
+#sim-bar{position:sticky;top:50px;z-index:190;background:#fff;border-bottom:2px solid var(--border2);padding:12px 24px;display:none;align-items:center;gap:14px;box-shadow:0 4px 16px rgba(0,0,0,.10);flex-wrap:wrap;}
+.sb-btn{font-family:var(--mono);font-size:11px;font-weight:700;padding:6px 16px;border-radius:7px;border:none;cursor:pointer;letter-spacing:.5px;transition:all .15s;}
+.sb-calc{background:linear-gradient(135deg,var(--ib),#4a90e2);color:#fff;box-shadow:0 3px 14px rgba(26,111,212,.4);font-size:14px!important;padding:11px 28px!important;border-radius:9px!important;}
+.sb-locked{background:var(--surface2);color:var(--muted);border:1px solid var(--border2);}
+.sb-locked.on{background:#fff3e0;color:var(--warn);border-color:var(--warn);}
+.sb-content{background:var(--surface2);color:var(--muted);border:1px solid var(--border2);}
+.sb-content.on{background:#e6f5ed;color:var(--ok);border-color:var(--ok);}
+.r-chip{text-align:center;padding:6px 14px;border-radius:9px;min-width:88px;}
+.r-chip .fn{font-family:Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+.r-chip .v{font-family:Arial,sans-serif;font-size:19px;font-weight:700;line-height:1.25;}
+.r-chip .d{font-family:Arial,sans-serif;font-size:11px;line-height:1.2;}
+.divider{width:1px;height:28px;background:var(--border2);}
+.label-sm{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;white-space:nowrap;}
+
+/* CONTENT */
+.mc{padding:18px 24px;max-width:1400px;margin:0 auto;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px 18px;box-shadow:var(--sh);}
+.mb8{margin-bottom:8px;}.mb12{margin-bottom:12px;}.mb16{margin-bottom:16px;}.mb20{margin-bottom:20px;}
+.sec-hd{font-size:14px;font-weight:700;}
+.sec-sub{font-size:11px;color:var(--muted);line-height:1.6;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.scrollx{overflow-x:auto;}
+strong{font-weight:700;}
+.badge{display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;text-transform:uppercase;}
+.b-dir{background:#e6f5ed;color:var(--ok);}
+.b-inv{background:#fdeaea;color:var(--danger);}
+.b-wt{background:#fff3e0;color:var(--warn);}
+
+/* SUBPAGE TABS */
+.sp-tabs{display:flex;gap:6px;margin-bottom:12px;}
+.sp-tab{font-size:12px;font-weight:600;padding:7px 20px;border-radius:8px;cursor:pointer;border:2px solid var(--border2);background:var(--surface);color:var(--muted);transition:all .15s;}
+.sp-tab.a-ib{border-color:var(--ib);background:var(--ib-l);color:var(--ib);}
+.sp-tab.a-inv{border-color:var(--inv);background:var(--inv-l);color:var(--inv);}
+.sp-tab.a-ob{border-color:var(--ob);background:var(--ob-l);color:var(--ob);}
+
+/* FACTOR TABLE */
+.ft{width:100%;border-collapse:collapse;font-size:11px;min-width:860px;}
+.ft th{background:var(--surface3);padding:7px 9px;text-align:left;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border2);}
+.ft td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.4;}
+.ft tr.s-hdr td{background:var(--surface2);font-weight:700;font-size:12px;border-top:2px solid var(--border2);}
+.ft tr.s-hdr.bn td{background:#fdeaea;}
+.ft tr.sp-row td{background:#fffbf0;font-size:10px;}
+.ec{border:1px solid transparent;border-radius:3px;padding:2px 3px;}
+.ec.on{border-color:var(--border2);background:#fffde7;outline:none;}
+.inp{font-family:var(--mono);font-size:11px;width:78px;border:1px solid var(--border2);border-radius:5px;padding:3px 6px;text-align:right;background:#fff;}
+.inp.bench{background:#f8faff;color:var(--ib);}
+.inp.lk{background:var(--surface2);color:var(--muted);pointer-events:none;}
+.res-cell{font-family:var(--mono);font-size:12px;font-weight:700;}
+.db{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;}
+.dp{background:#e6f5ed;color:var(--ok);}
+.dn{background:#fdeaea;color:var(--danger);}
+
+/* ANALYSIS TABLE */
+.at{width:100%;border-collapse:collapse;font-size:11px;}
+.at th{padding:6px 9px;font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border2);background:var(--surface3);}
+.at th:first-child,.at th:nth-child(2){text-align:left;}
+.at th:not(:first-child):not(:nth-child(2)){text-align:right;}
+.at td{padding:5px 9px;border-bottom:1px solid var(--border);}
+.at .sh td{background:#f57c00;color:#fff;font-weight:700;font-size:11px;}
+.at .sh.bl td{background:var(--ib);}
+.at .sub td{background:var(--surface2);font-style:italic;font-size:10px;color:var(--muted);}
+.at .ins td{background:#fffbf0;font-size:10px;line-height:1.6;color:var(--text2);}
+.nc{text-align:right;font-family:var(--mono);font-size:11px;}
+/* util rows — bold, left accent border */
+.at .util-row td{font-weight:700;font-size:12px;border-left:3px solid transparent;}
+.at .util-row.ib-row td{border-left-color:var(--ib);}
+.at .util-row.inv-row td{border-left-color:var(--inv);}
+.at .util-row.ob-row td{border-left-color:var(--ob);}
+.at .util-row td:first-child{padding-left:11px;}
+/* factor sub-rows — indented, smaller, muted */
+.at .fac-row td{font-size:10px;color:var(--text2);background:#fafbfd;padding:3px 9px;}
+.at .fac-row td:first-child{padding-left:22px;color:var(--muted);font-style:italic;}
+.at .fac-row td:nth-child(2){font-weight:600;color:var(--text);}
+
+/* CHARTS */
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:14px 16px;box-shadow:var(--sh);margin-bottom:12px;}
+.ct{font-size:12px;font-weight:700;margin-bottom:10px;}
+
+/* INSIGHTS */
+.mi{border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:14px;box-shadow:var(--sh);}
+.mi-h{padding:13px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;background:var(--surface);}
+.mi-h:hover{background:var(--surface2);}
+.mi-b{display:none;border-top:1px solid var(--border);padding:16px 18px;}
+.mi-b.open{display:block;}
+.ib-bullet{display:flex;gap:8px;padding:6px 9px;border-radius:6px;border-left:3px solid var(--border2);background:var(--surface2);margin-bottom:5px;font-size:11px;line-height:1.5;}
+.ib-bullet.d{border-left-color:var(--danger);background:#fef7f7;}
+.ib-bullet.w{border-left-color:var(--warn);background:#fffbf0;}
+.ib-bullet.o{border-left-color:var(--ok);background:#f0fbf5;}
+.ac{border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-bottom:7px;}
+.ac.p1{border-left:4px solid var(--danger);}
+.ac.p2{border-left:4px solid var(--warn);}
+.ac.p3{border-left:4px solid var(--ok);}
+.ai{font-size:11px;font-weight:600;color:var(--ok);background:#f0fbf5;border-radius:5px;padding:5px 8px;font-family:var(--mono);}
+
+/* MODAL */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;}
+.modal-box{background:#fff;border-radius:13px;padding:26px 30px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.kpi-v{font-family:var(--mono);font-size:20px;font-weight:700;}
+.kpi-s{font-size:10px;color:var(--muted);margin-top:2px;}
+/* ACCORDION */
+.acc-section{border:1px solid var(--border);border-radius:9px;margin-bottom:8px;overflow:hidden;}
+.acc-hdr{padding:13px 16px;display:flex;align-items:center;cursor:pointer;background:var(--surface);transition:background .15s;gap:0;}
+.acc-hdr:hover{background:var(--surface2);}
+.acc-body{border-top:1px solid var(--border);background:var(--surface);}
+.acc-result{font-family:Arial,sans-serif;font-size:14px;font-weight:700;}
+.acc-chevron{font-size:20px;color:var(--muted);transition:transform .2s;cursor:pointer;margin-left:6px;}
+/* past capacity chips row */
+.acc-past-caps{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--surface2);border-top:1px solid var(--border);flex-wrap:wrap;}
+.apc-label{font-family:Arial,sans-serif;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;margin-right:4px;}
+.apc-chip{text-align:center;padding:4px 10px;border-radius:6px;background:var(--surface);border:1px solid var(--border2);min-width:68px;}
+.apc-mo{font-family:Arial,sans-serif;font-size:8px;color:var(--muted);margin-bottom:1px;}
+.apc-v{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text);}
+/* SLIDES MODAL */
+
+/* ── INSIGHT CARDS (month collapsible) ── */
+.month-insight{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;box-shadow:var(--sh);}
+.mi-header{padding:14px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;background:var(--surface);user-select:none;}
+.mi-header:hover{background:var(--surface2);}
+.mi-month-badge{font-family:var(--mono);font-size:18px;font-weight:700;min-width:68px;}
+.mi-sys{flex:1;}
+.mi-sys-bn{font-size:13px;font-weight:700;margin-bottom:2px;}
+.mi-caps{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.mi-badges{display:flex;gap:8px;align-items:center;}
+.cap-badge{text-align:center;padding:5px 12px;border-radius:8px;min-width:64px;}
+.cap-badge .fn{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.cap-badge .val{font-family:var(--mono);font-size:14px;font-weight:700;}
+.cap-badge .chg{font-size:9px;}
+.mi-chevron{font-size:18px;color:var(--muted);transition:transform .25s;}
+.mi-body{background:var(--surface);border-top:1px solid var(--border);padding:18px 20px;display:none;}
+.mi-body.open{display:block;}
+/* insight sections */
+.insight-section{margin-bottom:16px;}
+.is-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.insight-bullet{display:flex;gap:8px;padding:7px 10px;border-radius:7px;border-left:3px solid var(--border2);background:var(--surface2);margin-bottom:5px;align-items:flex-start;}
+.insight-bullet.sev-danger{border-left-color:var(--danger);background:#fef7f7;}
+.insight-bullet.sev-warn{border-left-color:var(--warn);background:#fffbf0;}
+.insight-bullet.sev-ok{border-left-color:var(--ok);background:#f0fbf5;}
+.ib-fn{font-family:var(--mono);font-size:9px;font-weight:700;min-width:28px;padding-top:1px;}
+.ib-step{font-size:9px;color:var(--muted);min-width:90px;padding-top:1px;}
+.ib-text{font-size:11px;color:var(--text2);line-height:1.55;}
+/* action cards */
+.action-card{border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:8px;}
+.action-card.p1{border-left:4px solid var(--danger);}
+.action-card.p2{border-left:4px solid var(--warn);}
+.action-card.p3{border-left:4px solid var(--ok);}
+.action-hd{display:flex;align-items:center;gap:7px;margin-bottom:7px;}
+.action-pri{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+.action-pri.p1{background:#fdeaea;color:var(--danger);}
+.action-pri.p2{background:#fff3e0;color:var(--warn);}
+.action-pri.p3{background:#e6f5ed;color:var(--ok);}
+.action-title{font-size:12px;font-weight:700;}
+.action-why{font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5;}
+.action-impact{font-size:11px;color:var(--ok);font-weight:600;background:#f0fbf5;border-radius:5px;padding:5px 8px;font-family:var(--mono);margin-top:6px;}
+/* sim scenario table */
+.sim-scenario-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}
+.sim-scenario-table th{padding:5px 9px;text-align:left;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.5px;background:var(--surface2);border-bottom:1px solid var(--border2);}
+.sim-scenario-table td{padding:5px 9px;border-bottom:1px solid var(--border);}
+.sim-scenario-table tr.base td{font-weight:600;background:var(--surface2);}
+.sim-scenario-table tr.fix td{background:#f0fbf5;}
+/* tags used inside insight cards */
+.tag{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;}
+.tag-ib{background:var(--ib-l);color:var(--ib);}
+.tag-inv{background:var(--inv-l);color:var(--inv);}
+.tag-ob{background:var(--ob-l);color:var(--ob);}
+.tag-warn{background:#fff3e0;color:var(--warn);}
+
+/* ── ANALYSIS / INSIGHTS NEW LAYOUT ───────────────────────── */
+.fn-block{border:1px solid var(--border);border-radius:11px;margin-bottom:10px;overflow:hidden;}
+.fn-toggle{width:100%;text-align:left;padding:14px 18px;font-size:14px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;border:none;display:flex;align-items:center;justify-content:space-between;transition:background .15s;}
+.fn-toggle-arrow{font-size:20px;color:var(--muted);transition:transform .2s;}
+.ib-toggle{background:var(--ib-l);color:var(--ib);}
+.inv-toggle{background:var(--inv-l);color:var(--inv);}
+.ob-toggle{background:var(--ob-l);color:var(--ob);}
+.fn-content{padding:0;}
+
+/* Overview table */
+#ovTbl th{background:var(--surface3);padding:7px 10px;font-family:Arial,sans-serif;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border2);text-align:center;}
+#ovTbl td{padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
+#ovTbl tr.ov-sec td{background:var(--surface3);font-weight:700;font-size:11px;color:var(--text2);padding:5px 10px;}
+#ovTbl tr.ov-row:hover td{background:var(--surface2);}
+#ovTbl td.ov-metric{font-weight:600;color:var(--text);white-space:nowrap;}
+#ovTbl td.ov-sub{font-size:10px;color:var(--muted);font-style:italic;}
+.ov-val{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-align:right;}
+.ov-flag{display:inline-block;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:3px;}
+.ov-bn-chip{display:inline-block;font-family:Arial,sans-serif;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;text-align:center;}
+
+/* System insight box */
+#sysInsBox .si-head{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text);}
+.si-row{padding:7px 10px;border-left:3px solid var(--border2);margin-bottom:6px;background:var(--surface2);border-radius:0 6px 6px 0;}
+.si-tag{display:inline-block;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:1px 6px;border-radius:3px;text-transform:uppercase;margin-right:6px;}
+.si-text{font-size:11px;color:var(--text2);line-height:1.6;}
+
+/* Function view sub-sections */
+.fv-section{padding:16px 18px;border-bottom:1px solid var(--border);}
+.fv-section:last-child{border-bottom:none;}
+.fv-sec-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.fv-sec-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#fff;}
+
+/* Capacity table in Function View */
+.cap-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.cap-tbl th{background:var(--surface3);padding:6px 9px;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border2);text-align:right;}
+.cap-tbl th:first-child,.cap-tbl th:nth-child(2){text-align:left;}
+.cap-tbl td{padding:5px 9px;border-bottom:1px solid var(--border);vertical-align:top;}
+.cap-tbl tr.cap-fn-row td{font-weight:700;font-size:13px;}
+.cap-tbl tr.cap-step-row td{font-size:11px;color:var(--muted);}
+.cap-tbl tr.cap-step-row.is-bn td{color:var(--danger);font-weight:600;}
+.cap-tbl tr.cap-fac-row td{font-size:10px;color:#9aa5b8;font-style:italic;}
+.cap-tbl .cv{font-family:'JetBrains Mono',monospace;font-weight:700;}
+.cap-tbl .cd{font-family:'JetBrains Mono',monospace;font-size:9px;display:block;}
+.cap-step-indent{padding-left:22px!important;}
+
+/* Insight / Q / Action cards in Function View */
+.ins-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+.ins-card-cat{display:inline-block;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:3px;text-transform:uppercase;margin-bottom:6px;}
+.ins-card-txt{font-size:12px;color:var(--text2);line-height:1.65;}
+.ins-card.warn{border-left:3px solid var(--warn);}
+.ins-card.danger{border-left:3px solid var(--danger);}
+.ins-card.ok{border-left:3px solid var(--ok);}
+.q-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--muted);min-width:22px;}
+.q-pri{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;min-width:24px;text-align:center;height:fit-content;margin-top:1px;}
+.q-row:last-child{border-bottom:none;}
+.act-row{border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;}
+.act-row.p1{border-left:3px solid var(--danger);}
+.act-row.p2{border-left:3px solid var(--warn);}
+.act-row.p3{border-left:3px solid var(--ok);}
+.act-pri-badge{display:inline-block;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:2px 6px;border-radius:3px;margin-right:6px;}
+.act-title{font-size:12px;font-weight:700;color:var(--text);}
+.act-cond{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5;}
+.act-impact{font-size:10px;color:var(--ok);margin-top:4px;font-weight:600;}
+
+
+/* ── CHARTS PANEL ────────────────────────────────── */
+#btn-charts:hover{background:var(--surface2)!important;}
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--sh);}
+.ct{font-size:12px;font-weight:600;margin-bottom:10px;color:var(--text2);}
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div id="modal">
+  <div class="modal-box">
+    <div style="font-size:26px;margin-bottom:8px;">⚠️</div>
+    <div id="modal-title" style="font-size:14px;font-weight:700;margin-bottom:7px;"></div>
+    <div id="modal-msg" style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:16px;"></div>
+    <button onclick="closeModal()" style="background:var(--ib);color:#fff;border:none;border-radius:6px;padding:8px 24px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;">GOT IT</button>
+  </div>
+</div>
+
+<!-- LANDING -->
+<div id="land">
+  <div class="l-inner">
+    <div class="l-badge">Shopee Philippines · Warehouse Operations</div>
+    <h1 class="l-title">WH Capacity &<br><span>Throughput Tracker</span></h1>
+    <p class="l-sub">A data-driven tool to identify what limits your warehouse throughput — from factor definitions and step-level simulation to monthly insights with quantified action plans.</p>
+    <div class="l-cards">
+      <div class="l-card"><div class="l-card-icon">📖</div><div class="l-card-title">Factor Guide & Simulation</div><div class="l-card-sub">Identify step bottlenecks in IB, INV, OB. Edit inputs and simulate capacity changes vs benchmark.</div></div>
+      <div class="l-card"><div class="l-card-icon">📊</div><div class="l-card-title">Capacity Analysis</div><div class="l-card-sub">Utilisation, max capacity, space efficiency — actual vs benchmark with factor deviation inline.</div></div>
+      <div class="l-card"><div class="l-card-icon">💡</div><div class="l-card-title">Insights & Actions</div><div class="l-card-sub">Root cause chains with specific, numeric next steps and quantified capacity recovery per month.</div></div>
+    </div>
+    <p style="color:rgba(255,255,255,.5);font-size:11px;margin-bottom:11px;font-family:var(--mono);letter-spacing:1px;">SELECT WAREHOUSE</p>
+    <div class="wh-grid" id="whGrid">
+      <button class="wh-btn sel" data-wh="PHB" onclick="selWH(this)">PHB</button>
+      <button class="wh-btn" data-wh="PHL" onclick="selWH(this)">PHL</button>
+      <button class="wh-btn" data-wh="PHIXC" onclick="selWH(this)">PHIXC</button>
+    </div>
+    <button class="go-btn" onclick="enterDash()">ENTER DASHBOARD →</button>
+  </div>
+</div>
+
+<!-- SHELL -->
+<div id="shell">
+  <div class="topbar">
+    <button class="tb-home" onclick="goHome()">← Home</button>
+    <nav class="tb-nav">
+      <button class="tb-tab act" onclick="showTab('fac',this)">📖 Factor Guide & Simulation</button>
+      <button class="tb-tab" onclick="showTab('ana',this)">📊 Capacity Analysis & Insights</button>
+    </nav>
+    <div id="wh-chips"></div>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="tb-per">Jan–Mar 2026</span>
+  </div>
+
+  <!-- STICKY SIM BAR -->
+  <div id="sim-bar">
+    <!-- Left: action buttons -->
+    <button class="sb-btn sb-calc" onclick="runSim()" style="font-size:13px;padding:9px 22px;font-family:Arial,sans-serif;font-weight:700;letter-spacing:.5px;">▶ Calculate</button>
+    <button class="sb-btn sb-locked" id="btn-bench" onclick="rbacGate('bench')" style="font-family:Arial,sans-serif;font-size:11px;">🔒 Edit Benchmark</button>
+    <button class="sb-btn sb-content" id="btn-content" onclick="rbacGate('content')" style="font-family:Arial,sans-serif;font-size:11px;">✏️ Edit Content</button>
+    <div class="divider"></div>
+    <!-- Benchmark result -->
+    <div style="display:flex;flex-direction:column;gap:1px;">
+      <span style="font-family:Arial,sans-serif;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">BENCHMARK</span>
+      <div id="bench-chips" style="display:flex;gap:6px;"></div>
+    </div>
+    <!-- Modified result -->
+    <div id="mod-result-wrap" style="display:none;flex-direction:column;gap:1px;">
+      <div class="divider" style="display:none;"></div>
+      <span style="font-family:Arial,sans-serif;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">MODIFIED</span>
+      <div id="mod-chips" style="display:flex;gap:6px;"></div>
+    </div>
+  </div>
+
+  <!-- TAB: FACTORS -->
+  <div id="tab-fac" class="mc">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;color:var(--text);font-family:Arial,sans-serif;">📖 Factor Guide & Capacity Simulator</div>
+      <button onclick="toggleIntro()" id="btn-intro"
+        style="background:linear-gradient(135deg,#1a6fd4,#4a8de8);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(26,111,212,.3);letter-spacing:.3px;">
+        📖 Dashboard Introduction
+      </button>
+    </div>
+    <div id="intro-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--sh);">
+      <div class="ec" id="intro-text" contenteditable="false" style="font-size:12px;color:var(--text2);line-height:1.85;">
+        <strong>Purpose:</strong> This page helps you identify what limits your warehouse throughput across three main functions — <strong>Inbound (IB)</strong>, <strong>Inventory (INV)</strong>, and <strong>Outbound (OB)</strong>. The system bottleneck is whichever function has the lowest Max ADO (Average Daily Orders). To increase total throughput, the system bottleneck must be addressed first.<br><br>
+        <strong>Step-level bottleneck:</strong> Within each function, capacity equals the <em>minimum</em> step capacity. IB has three steps: Arrival Staging → Receiving → Putaway. OB has four steps: Sorting → Packing → Pre-sorting → PO Staging. The weakest step is highlighted in red — improving it directly raises the function's overall capacity without needing to change any other step.<br><br>
+        <strong>How to simulate:</strong> Each factor row has a <em>Benchmark</em> value (the theoretical design target, locked by default) and a <em>Modified</em> value (what you want to test). Change any Modified value and click <strong>▶ Calculate</strong>. The sticky bar at the top always shows the Benchmark result and, after calculating, the Modified result with Δ vs Benchmark.<br><br>
+        <strong>Space balancing:</strong> Each step has a Space Allocation row showing the SQM assigned to it. The number of stations or pallets is derived from SQM ÷ unit size. If you change SQM, a reminder will prompt you to update related station/pallet counts and consider adjusting other functions' SQM accordingly.
+      </div>
+    </div>
+    <!-- Subpage tabs: sticky under the sim bar, always visible -->
+    <div style="position:sticky;top:100px;z-index:150;background:var(--bg);padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:14px;">
+      <div class="sp-tabs" style="margin-bottom:0;">
+        <button class="sp-tab a-ib" id="sp-IB" onclick="showSP('IB',this)">📦 Inbound (IB)</button>
+        <button class="sp-tab" id="sp-INV" onclick="showSP('INV',this)">🏭 Inventory (INV)</button>
+        <button class="sp-tab" id="sp-OB" onclick="showSP('OB',this)">📤 Outbound (OB)</button>
+      </div>
+    </div>
+    <div id="spc-IB"></div>
+    <div id="spc-INV" style="display:none;"></div>
+    <div id="spc-OB" style="display:none;"></div>
+  </div>
+
+  <!-- TAB: ANALYSIS & INSIGHTS (merged) -->
+  <div id="tab-ana" class="mc" style="display:none;">
+
+    <!-- ══ SUB-TAB TOGGLE ══════════════════════════════════════ -->
+    <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:2px solid var(--border);padding-bottom:12px;">
+      <button id="ana-sub-btn-ov" onclick="anaSubTab('ov')"
+        style="background:var(--ib);color:#fff;border:none;border-radius:8px;padding:8px 22px;font-size:13px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;">
+        📊 Overview
+      </button>
+      <button id="ana-sub-btn-fn" onclick="anaSubTab('fn')"
+        style="background:var(--surface);color:var(--muted);border:2px solid var(--border2);border-radius:8px;padding:8px 22px;font-size:13px;font-weight:600;font-family:Arial,sans-serif;cursor:pointer;">
+        🔍 Function View
+      </button>
+    </div>
+
+    <!-- ══ OVERVIEW PANEL ══════════════════════════════════════ -->
+    <div id="ana-ov">
+      <!-- Overview table -->
+      <div class="card mb16">
+        <div class="scrollx"><table id="ovTbl" style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px;"></table></div>
+      </div>
+      <!-- System insights box -->
+      <div id="sysInsBox" class="card mb16"></div>
+    </div>
+
+    <!-- ══ FUNCTION VIEW PANEL ════════════════════════════════ -->
+    <div id="ana-fn" style="display:none;">
+      <!-- IB accordion -->
+      <div class="fn-block" id="fnb-IB">
+        <button class="fn-toggle ib-toggle" onclick="toggleFnBlock('IB',this)">
+          📦 Inbound (IB) <span class="fn-toggle-arrow">›</span>
+        </button>
+        <div class="fn-content" id="fnc-IB" style="display:none;"></div>
+      </div>
+      <!-- INV accordion -->
+      <div class="fn-block" id="fnb-INV">
+        <button class="fn-toggle inv-toggle" onclick="toggleFnBlock('INV',this)">
+          🏭 Inventory (INV) <span class="fn-toggle-arrow">›</span>
+        </button>
+        <div class="fn-content" id="fnc-INV" style="display:none;"></div>
+      </div>
+      <!-- OB accordion -->
+      <div class="fn-block" id="fnb-OB">
+        <button class="fn-toggle ob-toggle" onclick="toggleFnBlock('OB',this)">
+          📤 Outbound (OB) <span class="fn-toggle-arrow">›</span>
+        </button>
+        <div class="fn-content" id="fnc-OB" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- ══ FACTOR COMPARISON CHARTS (collapsible, bottom) ════ -->
+    <div style="margin-top:20px;">
+      <button id="btn-charts" onclick="toggleAnaCharts()"
+        style="width:100%;text-align:left;padding:12px 18px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Arial,sans-serif;">
+        <span style="font-size:16px;">📈</span> Factor Comparison Charts
+        <span id="charts-arrow" style="margin-left:auto;font-size:18px;color:var(--muted);transition:transform .2s;">›</span>
+      </button>
+      <div id="ana-charts-panel" style="display:none;margin-top:10px;">
+        <div class="grid2 mb12">
+          <div class="cc"><div class="ct" style="color:var(--ib);">📦 IB Step Capacities</div><canvas id="cIBs" height="200"></canvas></div>
+          <div class="cc"><div class="ct" style="color:var(--ib);">📦 IB Factor Impact vs Benchmark (%)</div><canvas id="cIBf" height="200"></canvas></div>
+        </div>
+        <div class="grid2 mb12">
+          <div class="cc"><div class="ct" style="color:var(--inv);">🏭 INV CBM Util & DOC Trend</div><canvas id="cINVu" height="200"></canvas></div>
+          <div class="cc"><div class="ct" style="color:var(--inv);">🏭 INV Factor Impact vs Benchmark (%)</div><canvas id="cINVf" height="200"></canvas></div>
+        </div>
+        <div class="grid2 mb12">
+          <div class="cc"><div class="ct" style="color:var(--ob);">📤 OB Step Capacities</div><canvas id="cOBs" height="200"></canvas></div>
+          <div class="cc"><div class="ct" style="color:var(--ob);">📤 OB Packing & Sorting Productivity</div><canvas id="cOBf" height="200"></canvas></div>
+        </div>
+        <div class="cc mb12"><div class="ct">📈 Monthly Capacity vs Throughput — IB · INV · OB</div><canvas id="cMain" height="140"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: INSIGHTS — kept for back-compat, hidden -->
+  <div id="tab-ins" class="mc" style="display:none;">
+    <div id="monthCards" style="display:none;"></div>
+    <div id="impTbl" style="display:none;"></div>
+  </div>
+</div><!-- end shell -->
+
+<script>
+// ══════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════
+const WH = {
+  PHB:{name:'PHB',months:['Jan-26','Feb-26','Mar-26','Apr-26'],
+    theo:{ibADO:274507,invADO:160454,obADO:193698},
+    ib:{avgUtil:[56.6,56.3,43.9,42.1],peakUtil:[88.2,88.3,85.0,63.9],
+        actualADO:[155641,149349,97089,101309],peakADO:[242315,234469,188167,153706],maxADO:[274880,265499,221289,240633]},
+    inv:{avgUtil:[68.9,85.0,81.0,79.3],peakUtil:[89.6,88.3,87.5,86.4],locPeakUtil:[92.1,93.7,93.9,87.3],
+         maxADO:[189724,193642,239617,198143],maxCBM:[5054,6602,6389,5391],actualCBM:[4530,5829,5593,4656]},
+    ob:{avgUtil:[50.5,56.3,51.1,50.2],peakUtil:[66.4,73.1,81.5,58.9],
+        actualADO:[109990,109704,103335,106306],peakADO:[144606,142309,164769,124782],maxADO:[217864,194698,202116,211897]},
+    mto:{peakUtil:[63.5,65.0,90.2,58.1],maxADO:[94623,96197,117985,111640],handover:[38,34.1,27.3,30.2]},
+    ibSteps:{jan:[323352,274880,421533],feb:[341279,265499,287787],mar:[312580,221289,284088],apr:[363319,240633,360569]},
+    obSteps:{jan:[256549,217864,239477,296052],feb:[232332,194698,233799,270086],mar:[236093,202116,236811,265202],apr:[214287,211897,241031,277596]},
+    spaceEff:{avgIBADOsqm:[71.5,68.5,46.2,64.2],avgOBADOsqm:[63.7,57.7,48.8,69.4],
+              avgCBMsqm:[0.461,0.481,0.484,0.412],avgCBMado:[0.0412,0.0531,0.0541,0.0438],
+              maxIBADOsqm:[111.3,107.5,89.6,97.4],maxOBADOsqm:[88.2,78.8,81.8,85.8]},
+    act:{
+      ib_wait_recv:[10.62,9.18,9.84,8.86], ib_items_recv:[1294.7,1209.8,1172.8,1206.1],
+      ib_po_prod:[730.3,786.1,677.7,752.8], ib_mt_prod:[717.9,576.6,411.4,468.8],
+      ib_pct_mti:[0.301,0.258,0.227,0.316], ib_wait_put:[2.85,3.83,3.75,3.11],
+      ib_put_hrs:[19.22,19.32,19.01,19.09], ib_items_put:[971.0,907.4,879.6,904.6],
+      inv_ior:[1.443,1.478,1.459,1.434], inv_doc:[25.66,30.20,30.21,25.59],
+      inv_cbm_pcs:[0.001112,0.001190,0.001228,0.001194], inv_cbm_util:[0.896,0.883,0.875,0.864],
+      ob_pack:[93.6,85.7,87.8,90.4], ob_sort:[237.3,242.1,210.9,178.8],
+      ob_sort_pct:[0.1845,0.2030,0.1763,0.1676], ob_items_pal:[1294.7,1209.8,1172.8,1206.1],
+    },
+    bottleneck:'INV',ibBN:'Receiving',obBN:'Packing'},
+
+  PHL:{name:'PHL',months:['Jan-26','Feb-26','Mar-26','Apr-26'],
+    theo:{ibADO:134983,invADO:74672,obADO:44948},
+    ib:{avgUtil:[27.1,67.3,63.1,43.6],peakUtil:[59.3,140.3,156.0,96.4],
+        actualADO:[40472,45387,39970,32106],peakADO:[88643,94558,98860,70966],maxADO:[334472,149785,141972,153038]},
+    inv:{avgUtil:[65.1,80.8,78.9,97.9],peakUtil:[76.7,91.0,92.2,78.7],locPeakUtil:[80.9,91.0,92.2,78.7],
+         maxADO:[64370,79927,63124,56846],maxCBM:[4431,4809,4359,4173],actualCBM:[3399,4376,4017,3283]},
+    ob:{avgUtil:[82.9,82.8,77.3,74.2],peakUtil:[156.9,206.0,212.9,123.1],
+        actualADO:[37846,38876,40797,40237],peakADO:[71652,96685,112383,66781],maxADO:[45670,46935,52795,54263]},
+    mto:{peakUtil:[120.1,225.7,128.5,27.4],maxADO:[9595,15002,13524,16405],handover:[50.9,29.3,33.4,28.3]},
+    ibSteps:{jan:[151952,149485,174108],feb:[104465,130999,67406],mar:[231295,63365,261638],apr:[166858,73604,494221]},
+    obSteps:{jan:[45670,52272,64358,57085],feb:[46935,51267,64803,51378],mar:[64617,59201,64271,52795],apr:[55092,54591,69257,54263]},
+    spaceEff:{avgIBADOsqm:[35.0,16.6,13.1,17.1],avgOBADOsqm:[13.6,10.7,10.8,18.5],
+              avgCBMsqm:[0.336,0.432,0.397,0.324],avgCBMado:[0.0898,0.1126,0.0985,0.0816],
+              maxIBADOsqm:[76.6,34.5,32.5,37.7],maxOBADOsqm:[23.4,24.0,27.0,27.8]},
+    act:{
+      ib_wait_recv:[5.32,6.96,3.23,4.60], ib_items_recv:[591.3,528.6,547.6,522.3],
+      ib_po_prod:[918.1,690.5,253.1,361.7], ib_mt_prod:[560.4,594.5,762.8,325.9],
+      ib_pct_mti:[0.291,0.153,0.344,0.192], ib_wait_put:[9.68,22.49,5.73,3.14],
+      ib_put_hrs:[23.24,23.22,22.33,22.53], ib_items_put:[443.5,396.4,410.7,391.8],
+      inv_ior:[2.237,2.222,2.241,2.079], inv_doc:[16.48,18.59,16.71,14.23],
+      inv_cbm_pcs:[0.002435,0.002724,0.002629,0.002757], inv_cbm_util:[0.767,0.910,0.922,0.787],
+      ob_pack:[40.6,39.6,46.1,39.4], ob_sort:[262.3,243.5,344.6,278.3],
+      ob_sort_pct:[0.2464,0.2241,0.2285,0.2332], ob_items_pal:[591.3,528.6,547.6,522.3],
+    },
+    bottleneck:'OB',ibBN:'Receiving',obBN:'Sorting'},
+
+  PHIXC:{name:'PHIXC',months:['Jan-26','Feb-26','Mar-26','Apr-26'],
+    theo:{ibADO:408571,invADO:null,obADO:34800},
+    ib:{avgUtil:[35.1,44.3,40.5,13.4],peakUtil:[103.3,101.2,108.1,41.7],
+        actualADO:[26458,72465,65514,31796],peakADO:[77840,165421,174654,99002],maxADO:[75374,163491,161624,237601]},
+    inv:{avgUtil:[84.1,82.3,84.7,90.7],peakUtil:[77.9,90.3,92.8,94.7],locPeakUtil:[91.2,90.3,92.8,94.7],
+         maxADO:[118816,90817,173975,171254],maxCBM:[3730,3431,5608,6714],actualCBM:[2906,3097,5203,6361]},
+    ob:{avgUtil:[18.8,29.9,59.1,53.8],peakUtil:[29.8,91.2,127.1,72.0],
+        actualADO:[2124,5036,13283,13299],peakADO:[3356,15359,28569,17802],maxADO:[11275,16848,22486,24727]},
+    mto:{peakUtil:[141.6,95.6,112.3,111.7],maxADO:[63907,80444,131899,133357],handover:[28.2,35.1,26.8,24.0]},
+    ibSteps:{jan:[222971,75374,225115],feb:[163491,188184,175242],mar:[161624,290746,173205],apr:[368892,237601,368586]},
+    obSteps:{jan:[11275,15587,26701,15170],feb:[16848,18470,27951,23767],mar:[23113,22486,35727,29755],apr:[29793,24727,39931,26941]},
+    spaceEff:{avgIBADOsqm:[17.2,48.1,40.7,51.2],avgOBADOsqm:[5.7,4.4,8.3,14.7],
+              avgCBMsqm:[0.411,0.438,0.736,0.900],avgCBMado:[1.368,0.615,0.392,0.478],
+              maxIBADOsqm:[50.6,109.7,108.5,159.5],maxOBADOsqm:[7.6,11.3,15.1,16.6]},
+    act:{
+      ib_wait_recv:[4.30,9.19,11.64,4.62], ib_items_recv:[545.4,816.3,799.5,647.7],
+      ib_po_prod:[200.8,575.3,558.3,453.8], ib_mt_prod:[670.6,442.0,835.2,653.9],
+      ib_pct_mti:[0.158,0.226,0.430,0.153], ib_wait_put:[2.0,4.19,5.38,2.28],
+      ib_put_hrs:[21.58,22.48,22.77,22.64], ib_items_put:[409.1,612.2,599.6,485.8],
+      inv_ior:[2.157,2.061,1.612,1.442], inv_doc:[240.3,169.1,134.9,149.1],
+      inv_cbm_pcs:[0.002640,0.001764,0.001801,0.002223], inv_cbm_util:[0.779,0.903,0.928,0.947],
+      ob_pack:[46.7,52.9,50.4,49.5], ob_sort:[49.7,124.9,98.2,86.1],
+      ob_sort_pct:[0.0981,0.1726,0.1266,0.0962], ob_items_pal:[545.4,816.3,799.5,647.7],
+    },
+    bottleneck:'OB',ibBN:'Receiving',obBN:'Sorting'},
+
+};
+
+// MOD maps act{} keys → BM keys for buildMonthInsights cap impact calcs
+// Always reads from current WH's BM (refreshed on WH switch)
+function getMOD(){
+  return {
+    ib_wait_recv:BM.s1_wait,   ib_items_recv:BM.s1_items, ib_po_prod:BM.po_prod,
+    ib_mt_prod:BM.mt_prod,     ib_pct_mti:BM.pct_mti,    ib_wait_put:BM.s3_wait,
+    ib_put_hrs:BM.s3_hrs,      ib_items_put:BM.s3_items,
+    inv_ior:BM.inv_ior,        inv_doc:BM.doc,             inv_cbm_pcs:BM.cbm_pcs,
+    inv_cbm_util:BM.cbm_util,
+    ob_pack:BM.pack_prod,      ob_sort:BM.sort_prod,       ob_sort_pct:BM.sort_pct,
+    ob_items_pal:BM.stg_items,
+  };
+}
+// Backwards-compat shim so existing MOD.x references still work
+const MOD=new Proxy({},{get(_,k){return getMOD()[k];}});
+// IMP_FACTORS: mod values read dynamically from BM at runtime so they reflect current WH
+const IMP_FACTORS_DEF=[
+  {fn:'IB',step:'Arr.Staging',label:'Pending Recv Wait (hr)',key:'ib_wait_recv',type:'INVERSE',bmKey:'s1_wait'},
+  {fn:'IB',step:'Arr.Staging',label:'Items/Pallet (recv)',key:'ib_items_recv',type:'DIRECT',bmKey:'s1_items'},
+  {fn:'IB',step:'Receiving',label:'PO Recv Prod (items/hr)',key:'ib_po_prod',type:'DIRECT',bmKey:'po_prod'},
+  {fn:'IB',step:'Receiving',label:'MT Recv Prod (items/hr)',key:'ib_mt_prod',type:'DIRECT',bmKey:'mt_prod'},
+  {fn:'IB',step:'Putaway',label:'Pending Putaway Wait (hr)',key:'ib_wait_put',type:'INVERSE',bmKey:'s3_wait'},
+  {fn:'IB',step:'Putaway',label:'Putaway Working Hrs',key:'ib_put_hrs',type:'DIRECT',bmKey:'s3_hrs'},
+  {fn:'IB',step:'Putaway',label:'Items/Pallet (putaway)',key:'ib_items_put',type:'DIRECT',bmKey:'s3_items'},
+  {fn:'INV',step:'Storage',label:'Days of Cover',key:'inv_doc',type:'INVERSE',bmKey:'doc'},
+  {fn:'INV',step:'Storage',label:'CBM Utilisation',key:'inv_cbm_util',type:'INVERSE',bmKey:'cbm_util',scale:100,unit:'%'},
+  {fn:'INV',step:'Storage',label:'CBM/pcs',key:'inv_cbm_pcs',type:'INVERSE',bmKey:'cbm_pcs',dp:6},
+  {fn:'INV',step:'Storage',label:'IOR',key:'inv_ior',type:'INVERSE',bmKey:'inv_ior',dp:3},
+  {fn:'OB',step:'Packing',label:'Pack Prod (items/hr)',key:'ob_pack',type:'DIRECT',bmKey:'pack_prod'},
+  {fn:'OB',step:'Sorting',label:'Sort Prod (items/hr)',key:'ob_sort',type:'DIRECT',bmKey:'sort_prod'},
+  {fn:'OB',step:'Sorting',label:'Sort Items %',key:'ob_sort_pct',type:'INVERSE',bmKey:'sort_pct',scale:100,unit:'%'},
+];
+// Live IMP_FACTORS — always reads mod from current BM
+function getImpFactors(){
+  return IMP_FACTORS_DEF.map(f=>({...f, mod:BM[f.bmKey]}));
+}
+const IMP_FACTORS=new Proxy([],{
+  get(_, i){ if(i==='length') return IMP_FACTORS_DEF.length; const f=IMP_FACTORS_DEF[i]; if(!f) return undefined; return {...f, mod:BM[f.bmKey]}; },
+  [Symbol.iterator](){ let i=0; const self=this; return {next(){ const v=self[i++]; return v!==undefined?{value:v,done:false}:{done:true}; }}; }
+});
+
+// Per-WH benchmark defaults — every value sourced from its own WH's IB Model col F and OB Model col F
+// IB factors: R5=ib_ior, R14=pct_mti, R26=s1_truck, R38=s1_items, R40=spu_s1, R41=po_prod,
+//   R42=mt_prod, R46=r_hrs, R48=spu_r, R51=s3_hrs, R52=put_prod, R54/R69=s3_wait,
+//   R61=s3_items, R63=spu_s3, R68=s1_wait, R82=sp_s1, R83=sp_r, R84=sp_s3,
+//   R86=s1_pal, R87=r_stns, R88=s3_pal, R94=bm_ib_staging, R101=bm_ib_recv,
+//   R107=bm_ib_putaway, R113=bm_ib
+// OB factors: R5=ob_ior, R28=stg_items, R43=sort_pct, R44=sort_prod, R45=pack_prod,
+//   R48=spu_sort, R49=spu_pack, R51=pre_prod, R53=spu_pre, R68=sp_sort, R69=sp_pack,
+//   R70=sp_pre, R71=sp_stg, R73=sort_stns, R74=pack_stns, R75=pre_stns, R78=stg_pal,
+//   R81=bm_ob_sorting, R87=bm_ob_packing, R93=bm_ob_presort, R99=bm_ob_staging
+
+const BM_PHB={
+  // IB factors (IB Model col F)
+  ib_ior:1.5,      s1_items:1200,  spu_s1:2.4,     po_prod:740,    mt_prod:800,
+  r_hrs:21,        spu_r:20.59,    r_stns:26,       s3_hrs:19.36,   put_prod:1200,
+  s3_wait:3.0,     s3_items:900,   spu_s3:2.4,      s1_wait:8.5,    s1_truck:11,
+  pct_mti:0.25,    s1_pal:348,     s3_pal:93,
+  sp_s1:836,       sp_r:536,       sp_s3:224,
+  // IB step benchmark ADO (IB Model col F R94/R101/R107/R113)
+  bm_ib_staging:360000, bm_ib_recv:274507, bm_ib_putaway:360025, bm_ib:274507,
+  // INV (Inventory Model Theoretical)
+  sqm:14264,  cbm_sqm:0.38,  cbm_util:0.82,  inv_ior:1.5,  doc:23,  cbm_pcs:0.001194,
+  // OB factors (OB Model col F)
+  ob_ior:1.45,     stg_items:1200,  sort_pct:0.246,  sort_prod:240,  pack_prod:85,
+  spu_sort:6.5625, spu_pack:11.0,   pre_prod:1200,   spu_pre:30,     stg_pal:300,
+  spu_stg:2.88,    sort_stns:12,    pack_stns:140,   pre_stns:12,
+  sort_hrs:24,     pack_hrs:24,     pre_hrs:24,
+  sp_sort:80,      sp_pack:1540,    sp_pre:360,      sp_stg:290,
+  // OB step benchmark ADO (OB Model col F R81/R87/R93/R99)
+  bm_ob_sorting:193698, bm_ob_packing:196966, bm_ob_presort:238345, bm_ob_staging:248276, bm_ob:193698,
+};
+
+const BM_PHL={
+  // IB factors — PHL has lower recv prod, 12hr putaway wait, 520 putaway prod, 366 putaway pallets
+  ib_ior:2.18,     s1_items:1200,  spu_s1:2.4,     po_prod:780,    mt_prod:580,
+  r_hrs:24,        spu_r:20.59,    r_stns:18,       s3_hrs:22.33,   put_prod:520,
+  s3_wait:12.0,    s3_items:432,   spu_s3:2.4,      s1_wait:5.2,    s1_truck:11,
+  pct_mti:0.22,    s1_pal:278,     s3_pal:366,
+  sp_s1:668,       sp_r:372,       sp_s3:879,
+  bm_ib_staging:155361, bm_ib_recv:143670, bm_ib_putaway:134983, bm_ib:134983,
+  // INV
+  sqm:10128,  cbm_sqm:0.38,  cbm_util:0.75,  inv_ior:2.1,  doc:19,  cbm_pcs:0.001722,
+  // OB factors — PHL has only 4 sort stns, 119 pack stns, 22sqm presort space
+  ob_ior:2.2,      stg_items:576,   sort_pct:0.233,  sort_prod:240,  pack_prod:85,
+  spu_sort:6.5625, spu_pack:11.0,   pre_prod:1200,   spu_pre:22,     stg_pal:216,
+  spu_stg:2.88,    sort_stns:4,     pack_stns:119,   pre_stns:5,
+  sort_hrs:24,     pack_hrs:24,     pre_hrs:24,
+  sp_sort:28,      sp_pack:1311,    sp_pre:110,      sp_stg:208,
+  bm_ob_sorting:44948, bm_ob_packing:110345, bm_ob_presort:65455, bm_ob_staging:56553, bm_ob:44948,
+};
+
+const BM_PHIXC={
+  // IB factors — PHIXC has 800 items/pallet, 13sqm/recv-stn, 1100 putaway prod, 550 PO prod
+  ib_ior:2.1,      s1_items:800,   spu_s1:2.4,     po_prod:550,    mt_prod:650,
+  r_hrs:24,        spu_r:13.0,     r_stns:30,       s3_hrs:22.62,   put_prod:1100,
+  s3_wait:3.0,     s3_items:540,   spu_s3:2.4,      s1_wait:8.5,    s1_truck:11,
+  pct_mti:0.20,    s1_pal:345,     s3_pal:110,
+  sp_s1:828,       sp_r:390,       sp_s3:264,
+  bm_ib_staging:152914, bm_ib_recv:194558, bm_ib_putaway:213281, bm_ib:152914,
+  // INV
+  sqm:7068,   cbm_sqm:0.44,  cbm_util:0.80,  inv_ior:2.4,  doc:23,  cbm_pcs:0.001708,
+  // OB factors — PHIXC has 100 sort prod, 50 pack prod, 22sqm presort, 2 sort stns, 29 pack stns
+  ob_ior:2.0,      stg_items:720,   sort_pct:0.122,  sort_prod:100,  pack_prod:50,
+  spu_sort:6.5625, spu_pack:11.0,   pre_prod:1200,   spu_pre:22,     stg_pal:90,
+  spu_stg:2.88,    sort_stns:2,     pack_stns:29,    pre_stns:2,
+  sort_hrs:24,     pack_hrs:24,     pre_hrs:24,
+  sp_sort:14,      sp_pack:328,     sp_pre:44,       sp_stg:58,
+  bm_ob_sorting:19648, bm_ob_packing:17400, bm_ob_presort:28800, bm_ob_staging:32400, bm_ob:17400,
+};
+
+const BM_DATA={PHB:BM_PHB, PHL:BM_PHL, PHIXC:BM_PHIXC};
+
+
+
+// Dynamic BM — per-WH, with localStorage persistence of user edits
+let BM=JSON.parse(JSON.stringify(BM_DATA['PHB']));// deep copy
+
+function getBMKey(wh){return 'bm_overrides_'+wh;}
+function getContentKey(wh){return 'content_overrides_'+wh;}
+
+// Save current benchmark input values to localStorage before switching WH
+function saveBMEdits(whKey){
+  // Benchmark persistence disabled — BM always loads fresh from BM_DATA[CUR].
+  // Keeping this stub so callers don't break.
+}
+
+// Save current content (DEF/CORR editable cells) to localStorage
+function saveContentEdits(){
+  const overrides={};
+  document.querySelectorAll('.ec[id]').forEach(el=>{
+    const id=el.id;
+    const txt=el.innerText||el.textContent||'';
+    // only save if it differs from original
+    const origKey=id.replace('def_','').replace('corr_','');
+    const orig=id.startsWith('def_')?(DEF[origKey]||''):(CORR[origKey]||'');
+    if(txt!==orig) overrides[id]=txt;
+  });
+  if(Object.keys(overrides).length>0)
+    localStorage.setItem(getContentKey(CUR),JSON.stringify(overrides));
+  else
+    localStorage.removeItem(getContentKey(CUR));
+}
+
+// Restore content overrides after buildSubpages renders
+function restoreContentEdits(){
+  const saved=localStorage.getItem(getContentKey(CUR));
+  if(!saved)return;
+  try{
+    const overrides=JSON.parse(saved);
+    Object.entries(overrides).forEach(([id,txt])=>{
+      const el=document.getElementById(id);
+      if(el) el.innerText=txt;
+    });
+  }catch(e){}
+}
+
+// Refresh BM for current WH: load base data + apply any saved overrides
+function refreshBM(){
+  // Always load a clean deep-copy from BM_DATA[CUR]. No localStorage — no contamination.
+  BM=JSON.parse(JSON.stringify(BM_DATA[CUR]||BM_DATA['PHB']));
+}
+
+
+// ── Actual data column helpers ──────────────────────
+// Maps factor table keys (BM keys) to act{} keys
+const BM_TO_ACT={
+  s1_wait:'ib_wait_recv', s1_items:'ib_items_recv',
+  po_prod:'ib_po_prod',   mt_prod:'ib_mt_prod',
+  pct_mti:'ib_pct_mti',  s3_wait:'ib_wait_put',
+  s3_hrs:'ib_put_hrs',   s3_items:'ib_items_put',
+  cbm_util:'inv_cbm_util', doc:'doc', cbm_pcs:'inv_cbm_pcs', inv_ior:'inv_ior',
+  sort_prod:'ob_sort',   sort_pct:'ob_sort_pct',
+  pack_prod:'ob_pack',   stg_items:'ob_items_pal',
+  // keys with no direct actual mapping:
+  s1_pal:null, s1_truck:null, r_stns:null, r_hrs:null,
+  s3_pal:null, sqm:null, cbm_sqm:null,
+  sort_stns:null, sort_hrs:null, pack_stns:null, pack_hrs:null,
+  pre_stns:null, pre_prod:null, pre_hrs:null,
+  stg_pal:null, ob_ior:null, ib_ior:null,
+  sp_s1:null, sp_r:null, sp_s3:null, sp_sort:null, sp_pack:null, sp_pre:null, sp_stg:null,
+  spu_s1:null, spu_r:null, spu_s3:null, spu_sort:null, spu_pack:null, spu_pre:null, spu_stg:null,
+};
+
+function getActualHeaders(){
+  const d=WH[CUR];
+  return d.months.map(m=>`<th style="width:78px;text-align:right;color:var(--muted);font-size:8px;">${m}<br><span style="font-size:7px;opacity:.7;">actual</span></th>`).join('');
+}
+
+function getActualCells(key, fn){
+  const d=WH[CUR];
+  const actKey=BM_TO_ACT[key];
+  if(!actKey||!d.act||!d.act[actKey]) {
+    return d.months.map(()=>`<td style="text-align:right;padding:4px 6px;font-family:var(--mono);font-size:10px;color:#ccc;">—</td>`).join('');
+  }
+  const vals=d.act[actKey];
+  const bmVal=BM[key];
+  return vals.map(v=>{
+    if(v===undefined||v===null) return `<td style="text-align:right;padding:4px 6px;font-family:var(--mono);font-size:10px;color:#ccc;">—</td>`;
+    // format value
+    const disp=key.includes('cbm_pcs')?v.toFixed(5):key.includes('pct')||key.includes('util')?r1(v*100)+'%':r1(v);
+    // colour: compare to benchmark
+    let fc='var(--text)';
+    if(bmVal!=null){
+      const isInv=['s1_wait','s3_wait','cbm_util','doc','cbm_pcs','inv_ior','ob_ior','ib_ior','sort_pct','pct_mti'].includes(key);
+      const diff=((v-bmVal)/Math.abs(bmVal));
+      if(isInv) fc=diff>0.05?'var(--danger)':diff<-0.05?'var(--ok)':'var(--muted)';
+      else      fc=diff<-0.05?'var(--danger)':diff>0.05?'var(--ok)':'var(--muted)';
+    }
+    return `<td style="text-align:right;padding:4px 6px;font-family:var(--mono);font-size:10px;color:${fc};background:#fafbff;">${disp}</td>`;
+  }).join('');
+}
+
+// factor correlation sentences (only for listed factors)
+const CORR={
+  s1_pal:'= Arrival staging SQM ÷ SQM per pallet. Adjust staging SQM to change pallet count.',
+  s1_wait:'Driven by receiving productivity and # stations. Longer wait reduces cycle count per hour (inverse effect).',
+  s1_items:'Determined by CBM/pcs — larger items = fewer items fit per pallet. Same driver impacts putaway items/pallet.',
+  r_stns:'= Receiving SQM ÷ SQM per station. Each +1 station at PHB adds ~3.85% receiving capacity.',
+  s3_pal:'= Putaway staging SQM ÷ SQM per pallet.',
+  s3_wait:'Driven by INV CBM utilisation — full shelves make locating free slots slower, increasing wait. Penalises both IB putaway and INV capacity.',
+  cbm_sqm:'= Total CBM stored ÷ INV SQM. Increase by adding taller shelving, narrowing aisles, or adding mezzanine levels.',
+  cbm_util:'High utilisation reduces INV capacity AND increases IB putaway wait — a double penalty. Also eliminates campaign surge headroom.',
+  cbm_pcs:'Cascades into three steps: IB arrival staging items/pallet, IB putaway items/pallet, and INV CBM consumed per ADO.',
+  sort_stns:'= Sorting SQM ÷ SQM per station.',
+  sort_pct:'Driven by MSAQ order mix. Higher MSAQ% → more items need sorting → capacity ∝ 1/sort% (inverse).',
+  pack_stns:'= Packing SQM ÷ SQM per station. Each +1 station adds ~0.7% packing capacity.',
+  pre_stns:'= Pre-sorting SQM ÷ SQM per station.',
+  stg_pal:'= OB staging SQM ÷ SQM per pallet × (24 ÷ handover duration hrs).',
+};
+
+const DEF={
+  s1_pal:'Physical pallet slots available in the inbound arrival staging area.',
+  s1_truck:'The fixed assumption for how many hours in a day trucks are expected to arrive.',
+  s1_wait:'Avg time a pallet waits in staging before receiving starts.',
+  s1_items:'Avg items loaded on each inbound pallet at arrival.',
+  ib_ior:'Items received per ADO dispatched. Shared with INV and OB.',
+  r_stns:'Physical number of active receiving workstations.',
+  po_prod:'Items processed per manhour at receiving — PO inbound.',
+  mt_prod:'Items processed per manhour — Market Transfer inbound. Usually lower due to SKU complexity.',
+  pct_mti:'Share of total inbound volume that is Market Transfer items.',
+  r_hrs:'Hours per day the receiving operation is active.',
+  s3_pal:'Physical pallet slots in the putaway staging area.',
+  s3_wait:'Avg time between an item being received and putaway starting.',
+  s3_hrs:'Hours per day putaway is actively running.',
+  s3_items:'Avg items per pallet moving into storage.',
+  sqm:'Total floor area allocated to inventory storage.',
+  cbm_sqm:'CBM of goods stored per sqm of floor space.',
+  cbm_util:'% of maximum storage CBM currently in use.',
+  inv_ior:'Items per ADO from an inventory perspective.',
+  doc:'Days of sales the current inventory can cover.',
+  cbm_pcs:'Volume per item — how much storage space each piece requires.',
+  sort_stns:'Physical number of active sorting workstations.',
+  sort_prod:'Items sorted per manhour.',
+  sort_hrs:'Hours per day sorting is active.',
+  sort_pct:'% of all items requiring sorting (MSAQ items ÷ total items dispatched).',
+  ob_ior:'Items dispatched per ADO. Shared across all OB steps.',
+  pack_stns:'Physical number of active packing workstations (PHB max: 140).',
+  pack_prod:'Items packed per manhour. The primary OB bottleneck driver.',
+  pack_hrs:'Hours per day packing is active.',
+  pre_stns:'Physical number of active pre-sorting workstations.',
+  pre_prod:'Orders pre-sorted per manhour.',
+  pre_hrs:'Hours per day pre-sorting is active.',
+  stg_pal:'Number of pallets shipped to SPX per day.',
+  stg_items:'Items per outbound pallet.',
+};
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let CUR='PHB',CHARTS={},aBuilt=false,benchUnlocked=false,contentUnlocked=false;
+const fK=v=>(v/1000).toFixed(1)+'K';
+const r1=v=>Math.round(v*10)/10;
+const pdiff=(a,b)=>((a-b)/Math.abs(b)*100);
+const invImp=(a,b)=>(b/a-1)*100;
+const dirImp=(a,b)=>(a/b-1)*100;
+const sign=v=>(v>=0?'+':'')+r1(v)+'%';
+const col=(v,pos)=>v===0?'var(--muted)':pos?(v>0?'var(--ok)':'var(--danger)'):(v<0?'var(--ok)':'var(--danger)');
+const GR={tick:'#6b7a96',grid:'rgba(200,208,224,.5)'};
+const MO=['Jan','Feb','Mar'];
+const XS={ticks:{color:GR.tick,font:{family:'Arial',size:10}},grid:{color:GR.grid}};
+const mkY=(lbl,mn,mx,cb)=>({min:mn,max:mx,ticks:{color:GR.tick,callback:cb||(v=>v>=1000?Math.round(v/1000)+'K':v),font:{size:9}},grid:{color:GR.grid},title:{display:!!lbl,text:lbl,color:GR.tick,font:{size:9}}});
+
+// ── Formulas ─────────────────────────────────────
+function calcIB(p){
+  // fallback chain: p (passed params) → BM (current WH benchmark) — NO hardcoded defaults
+  const IOR     = p.ib_ior   !=null?p.ib_ior   :BM.ib_ior;
+  const s1_pal  = p.s1_pal   !=null?p.s1_pal   :BM.s1_pal;
+  const s1_truck= p.s1_truck !=null?p.s1_truck :BM.s1_truck;
+  const s1_wait = p.s1_wait  !=null?p.s1_wait  :(p.ib_wait_recv!=null?p.ib_wait_recv:BM.s1_wait);
+  const s1_items= p.s1_items !=null?p.s1_items :(p.ib_items_recv!=null?p.ib_items_recv:BM.s1_items);
+  const po_prod = p.po_prod  !=null?p.po_prod  :(p.ib_po_prod!=null?p.ib_po_prod:BM.po_prod);
+  const mt_prod = p.mt_prod  !=null?p.mt_prod  :(p.ib_mt_prod!=null?p.ib_mt_prod:BM.mt_prod);
+  const pct_mti = p.pct_mti  !=null?p.pct_mti :(p.ib_pct_mti!=null?p.ib_pct_mti:BM.pct_mti);
+  const r_stns  = p.r_stns   !=null?p.r_stns   :BM.r_stns;
+  const r_hrs   = p.r_hrs    !=null?p.r_hrs    :BM.r_hrs;
+  const s3_pal  = p.s3_pal   !=null?p.s3_pal   :BM.s3_pal;
+  const s3_wait = p.s3_wait  !=null?p.s3_wait  :(p.ib_wait_put!=null?p.ib_wait_put:BM.s3_wait);
+  const s3_hrs  = p.s3_hrs   !=null?p.s3_hrs   :(p.ib_put_hrs!=null?p.ib_put_hrs:BM.s3_hrs);
+  const s3_items= p.s3_items !=null?p.s3_items :(p.ib_items_put!=null?p.ib_items_put:BM.s3_items);
+  const s1 = s1_pal * s1_truck / s1_wait * s1_items / IOR;
+  const avg= po_prod*(1-pct_mti) + mt_prod*pct_mti;
+  const s2 = r_stns * avg * r_hrs / IOR;
+  const s3 = s3_pal * s3_hrs / s3_wait * s3_items / IOR;
+  return [{n:'Arrival Staging',v:s1},{n:'Receiving',v:s2},{n:'Putaway',v:s3}];
+}
+function calcOB(p){
+  const IOR      = p.ob_ior   !=null?p.ob_ior   :BM.ob_ior;
+  const sort_stns= p.sort_stns!=null?p.sort_stns:BM.sort_stns;
+  const sort_prod= p.sort_prod!=null?p.sort_prod:(p.ob_sort!=null?p.ob_sort:BM.sort_prod);
+  const sort_hrs = p.sort_hrs !=null?p.sort_hrs :BM.sort_hrs;
+  const sort_pct = p.sort_pct !=null?p.sort_pct :(p.ob_sort_pct!=null?p.ob_sort_pct:BM.sort_pct);
+  const pack_stns= p.pack_stns!=null?p.pack_stns:BM.pack_stns;
+  const pack_prod= p.pack_prod!=null?p.pack_prod:(p.ob_pack!=null?p.ob_pack:BM.pack_prod);
+  const pack_hrs = p.pack_hrs !=null?p.pack_hrs :BM.pack_hrs;
+  const pre_stns = p.pre_stns !=null?p.pre_stns :BM.pre_stns;
+  const pre_prod = p.pre_prod !=null?p.pre_prod :BM.pre_prod;
+  const pre_hrs  = p.pre_hrs  !=null?p.pre_hrs  :BM.pre_hrs;
+  const stg_pal  = p.stg_pal  !=null?p.stg_pal  :BM.stg_pal;
+  const stg_items= p.stg_items!=null?p.stg_items:(p.ob_items_pal!=null?p.ob_items_pal:BM.stg_items);
+  return [
+    {n:'Sorting',    v:sort_stns*sort_prod*sort_hrs/sort_pct/IOR},
+    {n:'Packing',    v:pack_stns*pack_prod*pack_hrs/IOR},
+    {n:'Pre-sorting',v:pre_stns*pre_prod*pre_hrs/IOR},
+    {n:'PO Staging', v:stg_pal*stg_items/IOR},
+  ];
+}
+function calcINV(p){
+  const sqm     = p.sqm     !=null?p.sqm     :BM.sqm;
+  const cbm_sqm = p.cbm_sqm !=null?p.cbm_sqm :BM.cbm_sqm;
+  const cbm_util= p.cbm_util!=null?p.cbm_util:(p.inv_cbm_util!=null?p.inv_cbm_util:BM.cbm_util);
+  const inv_ior = p.inv_ior !=null?p.inv_ior :BM.inv_ior;
+  const doc     = p.doc     !=null?p.doc     :(p.inv_doc!=null?p.inv_doc:BM.doc);
+  const cbm_pcs = p.cbm_pcs !=null?p.cbm_pcs:(p.inv_cbm_pcs!=null?p.inv_cbm_pcs:BM.cbm_pcs);
+  return (sqm*cbm_sqm)/cbm_util/(inv_ior*doc*cbm_pcs);
+}
+function calcSys(p){
+  const ibs=calcIB(p),obs=calcOB(p),inv=calcINV(p);
+  const ib=Math.min(...ibs.map(s=>s.v)),ob=Math.min(...obs.map(s=>s.v));
+  const sys=Math.min(ib,ob,inv);
+  return {ibs,obs,inv,ib,ob,sys,ibBN:ibs.find(s=>s.v===ib).n,obBN:obs.find(s=>s.v===ob).n,
+    sysFn:sys===ib?'IB':sys===ob?'OB':'INV'};
+}
+function gbv(k){const el=document.getElementById('b_'+k);return el?(parseFloat(el.value)||0):(BM[k]!=null?BM[k]:0);}
+function gmv(k){const el=document.getElementById('m_'+k);return el?parseFloat(el.value)||0:gbv(k);}
+function bParams(){const p={};Object.keys(BM).filter(k=>typeof BM[k]==='number').forEach(k=>p[k]=gbv(k));return p;}
+function mParams(){const p={};Object.keys(BM).filter(k=>typeof BM[k]==='number').forEach(k=>p[k]=gmv(k));return p;}
+
+
+// ══════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════
+function selWH(el){document.querySelectorAll('.wh-btn').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');CUR=el.dataset.wh;}
+function goHome(){document.getElementById('shell').style.display='none';document.getElementById('land').style.display='flex';}
+function enterDash(){
+  document.getElementById('land').style.display='none';
+  document.getElementById('shell').style.display='block';
+  window.scrollTo(0,0);
+  // Clear any stale bm_overrides that may exist from old sessions
+  ['PHB','PHL','PHIXC'].forEach(w=>localStorage.removeItem('bm_overrides_'+w));
+  refreshBM();
+  document.getElementById('tb-per').textContent='Jan–Mar 2026 · '+CUR;
+  buildWHChips();loadAll();showTab('fac',document.querySelector('.tb-tab'));
+}
+function buildWHChips(){
+  document.getElementById('wh-chips').innerHTML=Object.keys(WH).map(w=>`
+    <button class="wh-chip" onclick="qSwitch('${w}')"
+      style="${w===CUR?'background:var(--ib);color:#fff;border-color:var(--ib);':'background:#fff;color:var(--muted);border-color:var(--border2);'}">${w}</button>`).join('');
+}
+function qSwitch(code){
+  saveContentEdits();
+  CUR=code;
+  refreshBM();// loads clean BM_DATA[CUR] — no localStorage contamination
+  document.getElementById('tb-per').textContent='Jan–Mar 2026 · '+code;
+  chartsBuilt=false;// reset so charts rebuild for new WH
+  buildWHChips();destroyAll();loadAll();
+}
+function showTab(name,btn){
+  ['fac','ana','ins'].forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.style.display=t===name?'block':'none';});
+  document.querySelectorAll('.tb-tab').forEach(b=>b.classList.remove('act'));
+  if(btn)btn.classList.add('act');
+  document.getElementById('sim-bar').style.display=name==='fac'?'flex':'none';
+  if(name==='ana'){
+    // Ensure overview is shown by default
+    anaSubTab('ov');
+  }
+}
+function showSP(fn,btn){
+  ['IB','INV','OB'].forEach(f=>document.getElementById('spc-'+f).style.display=f===fn?'block':'none');
+  document.querySelectorAll('.sp-tab').forEach(b=>b.classList.remove('a-ib','a-inv','a-ob'));
+  if(btn)btn.classList.add('a-'+fn.toLowerCase());
+}
+function toggleBench(){
+  benchUnlocked=!benchUnlocked;
+  const btn=document.getElementById('btn-bench');
+  btn.textContent=benchUnlocked?'🔓 Benchmark Unlocked':'🔒 Edit Benchmark';
+  btn.classList.toggle('on',benchUnlocked);
+  document.querySelectorAll('.inp.bench').forEach(el=>{el.disabled=!benchUnlocked;el.classList.toggle('lk',!benchUnlocked);});
+  if(!benchUnlocked){
+    // Reload clean benchmark — discard any edits made while unlocked
+    refreshBM();
+    buildSubpages();
+    buildBenchResult();
+  }
+}
+function toggleContent(){
+  contentUnlocked=!contentUnlocked;
+  const btn=document.getElementById('btn-content');
+  btn.textContent=contentUnlocked?'✅ Done Editing':'✏️ Edit Content';
+  btn.classList.toggle('on',contentUnlocked);
+  document.querySelectorAll('.ec').forEach(el=>{
+    el.contentEditable=contentUnlocked?'true':'false';
+    el.classList.toggle('on',contentUnlocked);
+  });
+  if(!contentUnlocked) saveContentEdits();// persist when done editing
+}
+function destroyAll(){
+  Object.keys(CHARTS).forEach(k=>{try{CHARTS[k].destroy();}catch(e){}});
+  CHARTS={};aBuilt=false;
+}
+function openModal(title,msg){document.getElementById('modal-title').textContent=title;document.getElementById('modal-msg').innerHTML=msg;document.getElementById('modal').style.display='flex';}
+function closeModal(){document.getElementById('modal').style.display='none';}
+
+// ══════════════════════════════════════════════════
+// LOAD ALL
+// ══════════════════════════════════════════════════
+function loadAll(){
+  buildSubpages();
+  buildBenchResult();
+  buildOverviewTable();
+  buildMonthInsights();
+}
+
+// ══════════════════════════════════════════════════
+// BENCHMARK RESULT
+// ══════════════════════════════════════════════════
+let BR=null;// benchmark result cached
+function buildBenchResult(){
+  BR=calcSys(bParams());
+  const fnC=fn=>fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)';
+  const sC=fnC(BR.sysFn);
+  document.getElementById('bench-chips').innerHTML=chipHTML('IB',BR.ib,BR.ibBN.split(' ')[0],'var(--ib)','var(--ib-l)','1px solid #b8d4f8')+
+    chipHTML('INV',BR.inv,'','var(--inv)','var(--inv-l)','1px solid #f0c8a0')+
+    chipHTML('OB',BR.ob,BR.obBN.split(' ')[0],'var(--ob)','var(--ob-l)','1px solid #a8d8bc')+
+    chipHTML('SYS BN',BR.sys,BR.sysFn,sC,'linear-gradient(135deg,#f0f4ff,#e8f2ff)',`2px solid ${sC}`);
+  // also fill in step result cells with benchmark
+  fillStepResults(BR,null);
+}
+function chipHTML(fn,val,sub,c,bg,border){
+  return `<div class="r-chip" style="background:${bg};border:${border};">
+    <div class="fn" style="color:${c};">${fn}</div>
+    <div class="v" style="color:${c};">${fK(val)}</div>
+    <div class="d" style="color:${c};">${sub||'&nbsp;'}</div>
+  </div>`;
+}
+function chipDelta(fn,val,bval,c,bg,border){
+  const d=pdiff(val,bval);
+  const db=Math.abs(d)<0.05?'':`<span class="db ${d>0?'dp':'dn'}">${sign(d)}</span>`;
+  return `<div class="r-chip" style="background:${bg};border:${border};">
+    <div class="fn" style="color:${c};">${fn}</div>
+    <div class="v" style="color:${c};">${fK(val)}</div>
+    <div class="d">${db}</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════
+// SIMULATOR
+// ══════════════════════════════════════════════════
+function runSim(){
+  if(!BR)buildBenchResult();
+  const MR=calcSys(mParams());
+  const sC=MR.sysFn==='IB'?'var(--ib)':MR.sysFn==='INV'?'var(--inv)':'var(--ob)';
+  showModResultWrap();
+  document.getElementById('mod-chips').innerHTML=
+    chipDelta('IB',MR.ib,BR.ib,'var(--ib)','var(--ib-l)','1px solid #b8d4f8')+
+    chipDelta('INV',MR.inv,BR.inv,'var(--inv)','var(--inv-l)','1px solid #f0c8a0')+
+    chipDelta('OB',MR.ob,BR.ob,'var(--ob)','var(--ob-l)','1px solid #a8d8bc')+
+    chipDelta('SYS BN',MR.sys,BR.sys,sC,'linear-gradient(135deg,#f0f4ff,#e8f2ff)',`2px solid ${sC}`);
+  fillStepResults(MR,BR);
+}
+function fillStepResults(r,bench){
+  const isSim=!!bench;// bench is null for benchmark run, set for sim run
+  // IB steps
+  r.ibs.forEach((s,i)=>{
+    const el=document.getElementById('sr_IB_'+i);if(!el)return;
+    const bn=s.v===r.ib;
+    const bs=bench?bench.ibs[i]:null;
+    const d=bs?pdiff(s.v,bs.v):null;
+    el.innerHTML=`<span style="color:${bn?'var(--danger)':'var(--ok)'};font-size:12px;font-weight:700;">${fK(s.v)}</span>`+
+      (d!==null&&Math.abs(d)>0.05?`<span class="db ${d>0?'dp':'dn'}" style="margin-left:3px;">${sign(d)}</span>`:'')+
+      (bn?`<span class="db" style="background:#fdeaea;color:var(--danger);margin-left:3px;">⚠BN</span>`:'');
+    document.getElementById('sh_IB_'+i)?.classList.toggle('bn',bn);
+    // Update sim result cell inside accordion table
+    if(isSim){
+      const sc=document.getElementById('sim_step_IB_'+i);
+      if(sc){
+        const bv=bench.ibs[i].v;
+        const delta=pdiff(s.v,bv);
+        const c=delta>=0?'var(--ok)':'var(--danger)';
+        sc.innerHTML=`<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${c};">${fK(s.v)}</span><div style="font-size:9px;color:${c};">${sign(delta)} vs BM</div>`;
+      }
+    }
+  });
+  // OB steps
+  r.obs.forEach((s,i)=>{
+    const el=document.getElementById('sr_OB_'+i);if(!el)return;
+    const bn=s.v===r.ob;
+    const bs=bench?bench.obs[i]:null;
+    const d=bs?pdiff(s.v,bs.v):null;
+    el.innerHTML=`<span style="color:${bn?'var(--danger)':'var(--ok)'};font-size:12px;font-weight:700;">${fK(s.v)}</span>`+
+      (d!==null&&Math.abs(d)>0.05?`<span class="db ${d>0?'dp':'dn'}" style="margin-left:3px;">${sign(d)}</span>`:'')+
+      (bn?`<span class="db" style="background:#fdeaea;color:var(--danger);margin-left:3px;">⚠BN</span>`:'');
+    document.getElementById('sh_OB_'+i)?.classList.toggle('bn',bn);
+    if(isSim){
+      const sc=document.getElementById('sim_step_OB_'+i);
+      if(sc){
+        const bv=bench.obs[i].v;
+        const delta=pdiff(s.v,bv);
+        const c=delta>=0?'var(--ok)':'var(--danger)';
+        sc.innerHTML=`<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${c};">${fK(s.v)}</span><div style="font-size:9px;color:${c};">${sign(delta)} vs BM</div>`;
+      }
+    }
+  });
+  // INV
+  const invEl=document.getElementById('sr_INV');if(invEl){
+    const d=bench?pdiff(r.inv,bench.inv):null;
+    invEl.innerHTML=`<span style="color:var(--inv);font-size:12px;font-weight:700;">${fK(r.inv)}</span>`+
+      (d!==null&&Math.abs(d)>0.05?`<span class="db ${d>0?'dp':'dn'}" style="margin-left:3px;">${sign(d)}</span>`:'');
+    if(isSim){
+      const sc=document.getElementById('sim_step_INV');
+      if(sc){
+        const bv=bench.inv;
+        const delta=pdiff(r.inv,bv);
+        const c=delta>=0?'var(--ok)':'var(--danger)';
+        sc.innerHTML=`<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${c};">${fK(r.inv)}</span><div style="font-size:9px;color:${c};">${sign(delta)} vs BM</div>`;
+      }
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════
+// SUBPAGES
+// ══════════════════════════════════════════════════
+const SP_ROWS={
+  IB:[
+    {t:'step', step:'Arrival Staging',fn:'IB',si:0,f:'pallets × truck_recv_window ÷ wait × items/pal ÷ IOR'},
+    {t:'space',step:'Arrival Staging',spk:'sp_s1',upk:'spu_s1',unit:'pallet',relKey:'s1_pal',
+     rmsg:'Update <strong># Staging Pallets</strong> = new SQM ÷ SQM per pallet.'},
+    {t:'fac',  step:'Arrival Staging',label:'# Staging Pallets',        key:'s1_pal',   ftype:'DIR'},
+    {t:'fac',  step:'Arrival Staging',label:'Truck Receiving Window (hr)',key:'s1_truck', ftype:'DIR'},
+    {t:'fac',  step:'Arrival Staging',label:'Pending Recv Wait (hr)',    key:'s1_wait',  ftype:'INV'},
+    {t:'fac',  step:'Arrival Staging',label:'Items / Pallet (recv)',     key:'s1_items', ftype:'DIR'},
+    {t:'fac',  step:'Arrival Staging',label:'IOR',                       key:'ib_ior',   ftype:'INV'},
+    {t:'step', step:'Receiving',fn:'IB',si:1,f:'stns × (PO×(1−%MTI)+MT×%MTI) × hrs ÷ IOR'},
+    {t:'space',step:'Receiving',spk:'sp_r',upk:'spu_r',unit:'station',relKey:'r_stns',
+     rmsg:'Update <strong># Receiving Stations</strong> = new SQM ÷ SQM per station.'},
+    {t:'fac',  step:'Receiving',label:'# Receiving Stations',       key:'r_stns', ftype:'DIR'},
+    {t:'fac',  step:'Receiving',label:'PO Recv Productivity (items/hr)',key:'po_prod',ftype:'DIR'},
+    {t:'fac',  step:'Receiving',label:'MT Recv Productivity (items/hr)',key:'mt_prod',ftype:'DIR'},
+    {t:'fac',  step:'Receiving',label:'% MTI Qty',                   key:'pct_mti', ftype:'WGT'},
+    {t:'fac',  step:'Receiving',label:'Working Hrs / Day',           key:'r_hrs',   ftype:'DIR'},
+    {t:'step', step:'Putaway Staging',fn:'IB',si:2,f:'pallets × putaway_hrs ÷ wait × items/pal ÷ IOR'},
+    {t:'space',step:'Putaway Staging',spk:'sp_s3',upk:'spu_s3',unit:'pallet',relKey:'s3_pal',
+     rmsg:'Update <strong># Putaway Pallets</strong> = new SQM ÷ SQM per pallet.'},
+    {t:'fac',  step:'Putaway Staging',label:'# Putaway Pallets',         key:'s3_pal',  ftype:'DIR'},
+    {t:'fac',  step:'Putaway Staging',label:'Pending Putaway Wait (hr)', key:'s3_wait', ftype:'INV'},
+    {t:'fac',  step:'Putaway Staging',label:'Putaway Working Hrs',       key:'s3_hrs',  ftype:'DIR'},
+    {t:'fac',  step:'Putaway Staging',label:'Items / Pallet (putaway)',  key:'s3_items',ftype:'DIR'},
+  ],
+  INV:[
+    {t:'step', step:'Storage',fn:'INV',si:null,f:'CBM ÷ CBM_util ÷ (IOR × DOC × CBM/pcs)'},
+    {t:'fac',  step:'Storage',label:'INV SQM',             key:'sqm',      ftype:'DIR'},
+    {t:'fac',  step:'Storage',label:'CBM / SQM',           key:'cbm_sqm',  ftype:'DIR'},
+    {t:'fac',  step:'Storage',label:'CBM Utilisation',     key:'cbm_util', ftype:'INV'},
+    {t:'fac',  step:'Storage',label:'IOR (INV)',            key:'inv_ior',  ftype:'INV'},
+    {t:'fac',  step:'Storage',label:'Days of Cover (DOC)', key:'doc',      ftype:'INV'},
+    {t:'fac',  step:'Storage',label:'CBM per Item',        key:'cbm_pcs',  ftype:'INV'},
+  ],
+  OB:[
+    {t:'step', step:'Sorting',fn:'OB',si:0,f:'stns × sort_prod × hrs ÷ sort_items% ÷ IOR'},
+    {t:'space',step:'Sorting',spk:'sp_sort',upk:'spu_sort',unit:'station',relKey:'sort_stns',
+     rmsg:'Update <strong># Sort Stations</strong> = new SQM ÷ SQM per station.'},
+    {t:'fac',  step:'Sorting',label:'# Sort Stations',         key:'sort_stns',ftype:'DIR'},
+    {t:'fac',  step:'Sorting',label:'Sort Productivity (items/hr)',key:'sort_prod',ftype:'DIR'},
+    {t:'fac',  step:'Sorting',label:'Sort Working Hrs / Day',   key:'sort_hrs',  ftype:'DIR'},
+    {t:'fac',  step:'Sorting',label:'Sort Items %',             key:'sort_pct',  ftype:'INV'},
+    {t:'fac',  step:'Sorting',label:'OB IOR',                   key:'ob_ior',    ftype:'INV'},
+    {t:'step', step:'Packing',fn:'OB',si:1,f:'stns × pack_prod × hrs ÷ IOR'},
+    {t:'space',step:'Packing',spk:'sp_pack',upk:'spu_pack',unit:'station',relKey:'pack_stns',
+     rmsg:'Update <strong># Pack Stations</strong> = new SQM ÷ SQM per station.'},
+    {t:'fac',  step:'Packing',label:'# Pack Stations',          key:'pack_stns', ftype:'DIR'},
+    {t:'fac',  step:'Packing',label:'Pack Productivity (items/hr)',key:'pack_prod',ftype:'DIR'},
+    {t:'fac',  step:'Packing',label:'Pack Working Hrs / Day',   key:'pack_hrs',  ftype:'DIR'},
+    {t:'step', step:'Pre-sorting',fn:'OB',si:2,f:'stns × presort_prod × hrs ÷ IOR'},
+    {t:'space',step:'Pre-sorting',spk:'sp_pre',upk:'spu_pre',unit:'station',relKey:'pre_stns',
+     rmsg:'Update <strong># Presort Stations</strong> = new SQM ÷ SQM per station.'},
+    {t:'fac',  step:'Pre-sorting',label:'# Presort Stations',       key:'pre_stns',  ftype:'DIR'},
+    {t:'fac',  step:'Pre-sorting',label:'Presort Productivity',      key:'pre_prod',  ftype:'DIR'},
+    {t:'fac',  step:'Pre-sorting',label:'Presort Hrs / Day',         key:'pre_hrs',   ftype:'DIR'},
+    {t:'step', step:'PO Staging',fn:'OB',si:3,f:'pallets_shipped/day × items/pal ÷ IOR'},
+    {t:'space',step:'PO Staging',spk:'sp_stg',upk:'spu_stg',unit:'pallet',relKey:'stg_pal',
+     rmsg:'Update <strong># Pallets Shipped/Day</strong> = new SQM ÷ SQM per pallet × (24 ÷ handover hrs).'},
+    {t:'fac',  step:'PO Staging',label:'# Pallets Shipped / Day', key:'stg_pal',   ftype:'DIR'},
+    {t:'fac',  step:'PO Staging',label:'Items / Pallet (OB)',     key:'stg_items', ftype:'DIR'},
+  ]
+};;
+
+function buildSubpages(){
+  ['IB','INV','OB'].forEach(fn=>{
+    const cont=document.getElementById('spc-'+fn);if(!cont)return;
+    const fnC=fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)';
+    const fnBg=fn==='IB'?'var(--ib-l)':fn==='INV'?'var(--inv-l)':'var(--ob-l)';
+    let h='';
+    let curStep='',curRid='',curFormula='',curSi=null,curFn='',facRows='';
+
+    function flush(){
+      if(!curStep) return;
+      // past months actual capacity for this step
+      const d=WH[CUR];
+      let pastCaps='';
+      if(curFn==='INV'){
+        const caps=d.inv.maxADO;
+        pastCaps=`<div class="acc-past-caps">
+          <span class="apc-label">Actual Max ADO</span>
+          ${d.months.map((m,i)=>`<div class="apc-chip"><div class="apc-mo">${m}</div><div class="apc-v">${fK(caps[i]||0)}</div></div>`).join('')}
+        </div>`;
+      } else if(curFn==='IB' && curSi!==null){
+        const steps=[d.ibSteps.jan,d.ibSteps.feb,d.ibSteps.mar,d.ibSteps.apr||[]];
+        const mnths=d.months;
+        pastCaps=`<div class="acc-past-caps">
+          <span class="apc-label">Step Max ADO</span>
+          ${mnths.map((m,i)=>`<div class="apc-chip"><div class="apc-mo">${m}</div><div class="apc-v">${steps[i]&&steps[i][curSi]!=null?fK(steps[i][curSi]):'—'}</div></div>`).join('')}
+        </div>`;
+      } else if(curFn==='OB' && curSi!==null){
+        const steps=[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar,d.obSteps.apr||[]];
+        const mnths=d.months;
+        pastCaps=`<div class="acc-past-caps">
+          <span class="apc-label">Step Max ADO</span>
+          ${mnths.map((m,i)=>`<div class="apc-chip"><div class="apc-mo">${m}</div><div class="apc-v">${steps[i]&&steps[i][curSi]!=null?fK(steps[i][curSi]):'—'}</div></div>`).join('')}
+        </div>`;
+      }
+      // Build step-level capacity row for top of table
+      let stepCapRow='';
+      if(curFn==='IB'&&curSi!==null){
+        const d=WH[CUR];
+        const bmCap=curSi===0?BM.bm_ib_staging:curSi===1?BM.bm_ib_recv:BM.bm_ib_putaway;
+        const steps=[d.ibSteps.jan,d.ibSteps.feb,d.ibSteps.mar,d.ibSteps.apr||[]];
+        const actCells=d.months.map((_,i)=>{
+          const v=steps[i]&&steps[i][curSi]!=null?steps[i][curSi]:null;
+          const delta=v!=null&&bmCap?((v-bmCap)/Math.abs(bmCap)*100):null;
+          const c=delta==null?'var(--muted)':delta>=0?'var(--ok)':'var(--danger)';
+          return v!=null?`<td style="text-align:right;padding:4px 6px;background:#f8faff;font-family:var(--mono);font-size:11px;">
+            <span style="font-weight:700;color:${c};">${fK(v)}</span>
+            ${delta!=null?`<div style="font-size:9px;color:${c};">${delta>=0?'+':''}${delta.toFixed(1)}%</div>`:''}
+          </td>`:'<td style="text-align:right;color:var(--muted);font-size:11px;padding:4px 6px;background:#f8faff;">—</td>';
+        }).join('');
+        stepCapRow=`<tr style="background:#f0f6ff;border-left:3px solid ${fnC};">
+          <td colspan="3" style="padding:5px 9px;font-weight:700;font-size:11px;color:${fnC};">📊 Step Max ADO</td>
+          <td style="text-align:right;padding:4px 9px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);">${bmCap?fK(bmCap):'—'}</td>
+          ${actCells}
+          <td style="text-align:right;padding:4px 9px;" id="sim_step_${curRid}">—</td>
+        </tr>`;
+      } else if(curFn==='OB'&&curSi!==null){
+        const d=WH[CUR];
+        const bmCaps=[BM.bm_ob_sorting,BM.bm_ob_packing,BM.bm_ob_presort,BM.bm_ob_staging];
+        const bmCap=bmCaps[curSi];
+        const steps=[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar,d.obSteps.apr||[]];
+        const actCells=d.months.map((_,i)=>{
+          const v=steps[i]&&steps[i][curSi]!=null?steps[i][curSi]:null;
+          const delta=v!=null&&bmCap?((v-bmCap)/Math.abs(bmCap)*100):null;
+          const c=delta==null?'var(--muted)':delta>=0?'var(--ok)':'var(--danger)';
+          return v!=null?`<td style="text-align:right;padding:4px 6px;background:#f8faff;font-family:var(--mono);font-size:11px;">
+            <span style="font-weight:700;color:${c};">${fK(v)}</span>
+            ${delta!=null?`<div style="font-size:9px;color:${c};">${delta>=0?'+':''}${delta.toFixed(1)}%</div>`:''}
+          </td>`:'<td style="text-align:right;color:var(--muted);font-size:11px;padding:4px 6px;background:#f8faff;">—</td>';
+        }).join('');
+        stepCapRow=`<tr style="background:#f0f9f5;border-left:3px solid ${fnC};">
+          <td colspan="3" style="padding:5px 9px;font-weight:700;font-size:11px;color:${fnC};">📊 Step Max ADO</td>
+          <td style="text-align:right;padding:4px 9px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);">${bmCap?fK(bmCap):'—'}</td>
+          ${actCells}
+          <td style="text-align:right;padding:4px 9px;" id="sim_step_${curRid}">—</td>
+        </tr>`;
+      } else if(curFn==='INV'){
+        const d=WH[CUR];
+        const bmCap=null;// INV has no single step ADO benchmark
+        const actCells=d.months.map((_,i)=>{
+          const v=d.inv.maxADO[i];
+          return `<td style="text-align:right;padding:4px 6px;background:#fff8f2;font-family:var(--mono);font-size:11px;font-weight:700;color:${fnC};">${fK(v)}</td>`;
+        }).join('');
+        stepCapRow=`<tr style="background:#fff8f2;border-left:3px solid ${fnC};">
+          <td colspan="3" style="padding:5px 9px;font-weight:700;font-size:11px;color:${fnC};">📊 INV Max ADO</td>
+          <td style="text-align:right;padding:4px 9px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);">—</td>
+          ${actCells}
+          <td style="text-align:right;padding:4px 9px;" id="sim_step_${curRid}">—</td>
+        </tr>`;
+      }
+
+      h+=`<div class="acc-section">
+        <div class="acc-hdr" onclick="toggleAcc('${curRid}')">
+          <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${fnC};background:${fnBg};padding:2px 8px;border-radius:7px;margin-right:8px;">${curFn}</span>
+          <strong style="font-size:13px;flex:1;">${curStep}</strong>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-right:16px;">${curFormula}</span>
+          <div class="acc-result" id="sr_${curRid}"><span style="color:var(--muted);font-size:11px;">—</span></div>
+          <span class="acc-chevron" id="chev_${curRid}" style="margin-left:10px;">›</span>
+        </div>
+        <div class="acc-body" id="body_${curRid}" style="display:none;">
+          <div class="scrollx"><table class="ft" style="min-width:700px;">
+          <thead><tr>
+            <th style="width:175px;">Factor</th>
+            <th>Definition <span style="font-size:8px;font-weight:400;">(editable)</span></th>
+            <th>Factor Correlation <span style="font-size:8px;font-weight:400;">(editable)</span></th>
+            <th style="width:95px;text-align:right;color:#1a6fd4;">Benchmark</th>
+            ${getActualHeaders()}
+            <th style="width:95px;text-align:right;">Modified</th>
+          </tr></thead><tbody>
+          ${stepCapRow}
+          ${facRows}
+          </tbody></table></div>
+        </div>
+      </div>`;
+      facRows='';curStep='';curRid='';curFormula='';curSi=null;curFn='';
+    }
+
+    SP_ROWS[fn].forEach(row=>{
+      if(row.t==='step'){
+        flush();
+        curStep=row.step;
+        curRid=fn==='INV'?'INV':`${fn}_${row.si}`;
+        curFormula=row.f;
+        curSi=row.si;
+        curFn=fn;
+      } else if(row.t==='space'){
+        const bv=BM[row.spk]||0,uv=BM[row.upk]||1;
+        facRows+=`<tr class="sp-row">
+          <td colspan="2" style="font-weight:600;color:var(--warn);">📐 Space — ${row.step}</td>
+          <td style="font-size:10px;color:var(--muted);"># ${row.unit}s = SQM ÷ ${r1(uv)}</td>
+          <td style="text-align:right;padding:4px 9px;">
+            <input class="inp bench lk" id="b_${row.spk}" value="${bv}" disabled
+              onchange="onSpace('${row.spk}','${row.upk}',this.value,'${row.rmsg}')">
+            <div style="font-size:8px;color:var(--muted);text-align:right;margin-top:1px;">benchmark</div>
+          </td>
+          ${getActualCells(row.spk,fn)}
+          <td style="text-align:right;padding:4px 9px;">
+            <input class="inp" id="m_${row.spk}" value="${bv}"
+              onchange="onSpace('${row.spk}','${row.upk}',this.value,'${row.rmsg}')">
+          </td>
+        </tr>`;
+      } else {
+        const bv=BM[row.key]!=null?BM[row.key]:'';
+        const def=DEF[row.key]||'';
+        const corr=CORR[row.key]||'';
+        const stepNum=row.key.includes('cbm_pcs')?'0.00005':row.key.includes('pct')||row.key.includes('util')||row.key.includes('ior')?'0.01':row.key.includes('hrs')?'0.5':'1';
+        facRows+=`<tr>
+          <td><strong style="font-size:11px;">${row.label}</strong></td>
+          <td><span class="ec" id="def_${row.key}" contenteditable="false">${def}</span></td>
+          <td><span class="ec" id="corr_${row.key}" contenteditable="false" style="font-size:10px;color:var(--muted);">${corr||'—'}</span></td>
+          <td style="text-align:right;padding:4px 9px;">
+            <input class="inp bench lk" id="b_${row.key}" value="${bv}" disabled step="${stepNum}">
+            <div style="font-family:var(--mono);font-size:8px;color:var(--muted);text-align:right;margin-top:1px;">benchmark</div>
+          </td>
+          ${getActualCells(row.key,fn)}
+          <td style="text-align:right;padding:4px 9px;">
+            <input class="inp" id="m_${row.key}" value="${bv}" step="${stepNum}">
+          </td>
+        </tr>`;
+      }
+    });
+    flush();
+    cont.innerHTML=h;
+  });
+  restoreContentEdits();// restore saved DEF/CORR edits after DOM is built
+  const bp=bParams(),br=calcSys(bp);
+  fillStepResults(br,null);
+}
+function toggleAcc(rid){
+  const body=document.getElementById('body_'+rid);
+  const chev=document.getElementById('chev_'+rid);
+  if(!body)return;
+  const open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  if(chev)chev.style.transform=open?'rotate(90deg)':'';
+}
+function onSpace(spk,upk,newSQM,msg){
+  const uv=BM[upk]||1;
+  const unitEst=Math.round(newSQM/uv);
+  const totalWH=2470+14264+2600;// IB+INV+OB total
+  const fnLabel=spk.startsWith('sp_s')||spk==='sp_r'?'IB':spk.startsWith('sp_sort')||spk.startsWith('sp_pack')||spk.startsWith('sp_pre')||spk.startsWith('sp_stg')?'OB':'INV';
+  openModal('⚠️ Space Allocation Changed',
+    msg+
+    '<br><br>New estimate: <strong>'+Math.round(newSQM)+' SQM</strong> ÷ '+r1(uv)+' = <strong>'+unitEst+'</strong> units.'+
+    '<br><br><strong>Reminder — total WH space is fixed.</strong> If you increase <strong>'+fnLabel+'</strong> SQM, you must reduce SQM in another function to compensate.<br>'+
+    'e.g. if you add space to '+fnLabel+', consider reducing it from '+(fnLabel==='IB'?'OB staging or INV low-density aisles':fnLabel==='OB'?'IB staging or INV slow-mover zones':'IB arrival staging or OB staging')+' proportionally.');
+}
+
+
+// ══════════════════════════════════════════════════
+// KPI + CAP TABLE
+// ══════════════════════════════════════════════════
+function buildKPI(){
+  const d=WH[CUR];
+  const kpiDiv=document.getElementById('kpiRow');
+  const isPHB=CUR==='PHB';
+  function kpiCard(label,val,sub,color,delta){
+    return `<div class="kpi" style="border-left:4px solid ${color};">
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-val" style="color:${color};">${val}</div>
+      <div class="kpi-sub">${sub}</div>
+      ${delta?`<div class="kpi-delta delta-${delta.c}">${delta.v}</div>`:''}
+    </div>`;
+  }
+  const ibCap=d.ib.maxADO, invCap=d.inv.maxADO, obCap=d.ob.maxADO;
+  const sysCap=invCap.map((v,i)=>Math.min(v,ibCap[i],obCap[i]));
+  kpiDiv.innerHTML=
+    kpiCard('IB Max Capacity',fK(ibCap[0]),'Jan-26 max daily ADO','var(--ib)',
+      {v:sign(pdiff(ibCap[2],ibCap[0]))+' Jan→Mar',c:pdiff(ibCap[2],ibCap[0])<0?'neg':'pos'})+
+    kpiCard('INV Max Capacity',fK(invCap[0]),'Jan-26 · System Bottleneck','var(--inv)',
+      {v:'Peak CBM util '+d.inv.peakUtil[0]+'%',c:d.inv.peakUtil[0]>85?'neg':'warn'})+
+    kpiCard('OB Max Capacity',fK(obCap[0]),'Jan-26 max daily ADO','var(--ob)',
+      {v:sign(pdiff(obCap[2],obCap[0]))+' Jan→Mar',c:pdiff(obCap[2],obCap[0])<0?'neg':'pos'})+
+    kpiCard('Actual Avg IB ADO',fK(d.ib.actualADO[0]),'Jan-26 avg daily throughput','var(--muted)',
+      {v:r1(d.ib.avgUtil[0])+'% util',c:d.ib.avgUtil[0]>80?'neg':'warn'})+
+    kpiCard('Actual Avg OB ADO',fK(d.ob.actualADO[0]),'Jan-26 avg daily throughput','var(--muted)',
+      {v:r1(d.ob.avgUtil[0])+'% util',c:d.ob.avgUtil[0]>80?'neg':'warn'})+
+    kpiCard('System Capacity',fK(sysCap[0]),'Min(IB,INV,OB) Jan-26','var(--danger)',
+      {v:'BN: '+d.bottleneck,c:'neg'});
+}
+
+function buildCapTbl(){
+  const d=WH[CUR],tbody=document.getElementById('capTbl');
+  if(!tbody)return;
+  const a=d.act,mo=d.months;
+
+  // helpers
+  const fnT=fn=>`<span style="font-family:var(--mono);font-size:9px;font-weight:700;color:${fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)'};background:${fn==='IB'?'var(--ib-l)':fn==='INV'?'var(--inv-l)':'var(--ob-l)'};padding:1px 6px;border-radius:5px;">${fn}</span>`;
+  const pctC=(v,ref,good)=>good?(v>=ref*.95?'var(--ok)':v>=ref*.85?'var(--warn)':'var(--danger)'):(v<=ref*1.05?'var(--ok)':v<=ref*1.15?'var(--warn)':'var(--danger)');
+  // All data cells use a fixed 3-line block so every column aligns:
+  //   line1: main value (bold, coloured)
+  //   line2: Δ vs benchmark % (small)
+  //   line3: empty spacer for util rows (keeps height = factor rows)
+  const CELL_H='padding:5px 9px;vertical-align:top;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);';
+  const LINE1='font-size:12px;font-weight:700;line-height:1.3;';
+  const LINE2='font-size:9px;line-height:1.3;';
+  const LINE3='font-size:9px;line-height:1.3;';
+  const numC=(v,ref,good,fmt)=>{
+    const p=((v-ref)/Math.abs(ref)*100);
+    const c=pctC(v,ref,good);
+    const disp=fmt?fmt(v):v>=1000?Math.round(v).toLocaleString():r1(v);
+    return `<td style="${CELL_H}">
+      <div style="${LINE1}color:${c};">${disp}</div>
+      <div style="${LINE2}color:${c};">${p>=0?'+':''}${p.toFixed(1)}%</div>
+      <div style="${LINE3}color:transparent;">—</div>
+    </td>`;
+  };
+  const benchC=(v,fmt)=>`<td style="${CELL_H}color:var(--muted);font-weight:600;">
+    <div style="${LINE1}">${fmt?fmt(v):v>=1000?Math.round(v).toLocaleString():r1(v)}</div>
+    <div style="${LINE2}opacity:0;">—</div>
+    <div style="${LINE3}opacity:0;">—</div>
+  </td>`;
+  const mtdC=()=>`<td style="${CELL_H}color:var(--muted);">
+    <div style="${LINE1}">—</div>
+    <div style="${LINE2}opacity:0;">—</div>
+    <div style="${LINE3}opacity:0;">—</div>
+  </td>`;
+  const secH=(txt,cl)=>`<tr class="sh${cl?' '+cl:''}"><td colspan="7" style="padding:7px 10px;font-weight:700;font-size:11px;">${txt}</td></tr>`;
+  const subH=(txt)=>`<tr class="sub"><td colspan="7">${txt}</td></tr>`;
+
+  // Factor inline row — same 3-line cell structure as util rows for alignment
+  const facRow=(step,label,vals,mod,ftype,rowspan,isFirst)=>{
+    const cells=vals.map(v=>{
+      if(v===undefined||v===null) return `<td style="${CELL_H}"><div style="${LINE1}color:var(--muted);">—</div><div style="${LINE2}opacity:0;">—</div><div style="${LINE3}opacity:0;">—</div></td>`;
+      const fd=pdiff(v,mod);
+      const ci=ftype==='INVERSE'?invImp(v,mod):dirImp(v,mod);
+      const modDisp=typeof v==='number'&&v<1?r1(v*100)+'%':r1(v);
+      const fcC=ftype==='DIRECT'?(fd>=0?'var(--ok)':'var(--danger)'):(fd<=0?'var(--ok)':'var(--danger)');
+      const ciC=ci>=0?'var(--ok)':'var(--danger)';
+      return `<td style="${CELL_H}">
+        <div style="${LINE1}">${modDisp}</div>
+        <div style="${LINE2}color:${fcC};">${fd>=0?'+':''}${fd.toFixed(1)}%</div>
+        <div style="${LINE3}color:${ciC};font-weight:700;">${sign(ci)} cap</div>
+      </td>`;
+    }).join('');
+    const benchVal=typeof mod==='number'&&mod<1?r1(mod*100)+'%':r1(mod);
+    const stepCell=isFirst?`<td style="border-bottom:1px solid var(--border);padding:5px 7px 5px 16px;font-size:10px;color:var(--muted);vertical-align:top;font-style:italic;" rowspan="${rowspan}">${step}</td>`:'';
+    return `<tr class="fac-row">
+      ${stepCell}
+      <td style="border-bottom:1px solid var(--border);padding:5px 9px;font-size:11px;color:#9aa5b8;font-style:italic;">${label}</td>
+      <td style="${CELL_H}color:var(--muted);">
+        <div style="${LINE1}">${benchVal}</div>
+        <div style="${LINE2}opacity:0;">—</div>
+        <div style="${LINE3}opacity:0;">—</div>
+      </td>
+      ${cells}
+      ${mtdC()}
+    </tr>`;
+  };
+
+  // Row for main util/capacity metrics — uses same cell structure as facRow
+  const row=(fn,label,bench,vals,good,fmt,isUtil)=>`<tr class="${isUtil?`util-row ${fn.toLowerCase()}-row`:''}">
+    <td style="padding:5px 9px 5px 14px;border-bottom:1px solid var(--border);vertical-align:middle;">${fnT(fn)}</td>
+    <td style="border-bottom:1px solid var(--border);${isUtil?'font-weight:700;font-size:13px;':'font-size:11px;'}padding:5px 9px;vertical-align:middle;">${label}</td>
+    ${benchC(bench,fmt)}
+    ${vals.map(v=>numC(v,bench,good,fmt)).join('')}
+    ${mtdC()}
+  </tr>`;
+
+  // IB inline factor sub-rows
+  function ibFactorRows(i_arr){
+    if(!a) return '';
+    let h='';
+    const groups=[
+      {step:'Arr.Staging', factors:[
+        {label:'Pending Recv Wait (hr)', vals:a.ib_wait_recv, mod:BM.s1_wait,  ftype:'INVERSE'},
+        {label:'Items/Pallet (recv)',    vals:a.ib_items_recv,mod:BM.s1_items, ftype:'DIRECT'},
+      ]},
+      {step:'Receiving', factors:[
+        {label:'PO Recv Prod (items/hr)',vals:a.ib_po_prod,  mod:BM.po_prod,  ftype:'DIRECT'},
+        {label:'MT Recv Prod (items/hr)',vals:a.ib_mt_prod,  mod:BM.mt_prod,  ftype:'DIRECT'},
+      ]},
+      {step:'Putaway', factors:[
+        {label:'Putaway Wait (hr)',      vals:a.ib_wait_put, mod:BM.s3_wait,  ftype:'INVERSE'},
+        {label:'Putaway Hrs',            vals:a.ib_put_hrs,  mod:BM.s3_hrs,   ftype:'DIRECT'},
+        {label:'Items/Pallet (put)',     vals:a.ib_items_put,mod:BM.s3_items, ftype:'DIRECT'},
+      ]},
+    ];
+    groups.forEach(g=>{
+      g.factors.forEach((f,fi)=>{
+        h+=facRow(g.step,f.label,i_arr?i_arr.map(i=>f.vals[i]):f.vals,f.mod,f.ftype,g.factors.length,fi===0);
+      });
+    });
+    return h;
+  }
+  function invFactorRows(i_arr){
+    if(!a) return '';
+    const factors=[
+      {label:'Days of Cover',  vals:a.inv_doc,      mod:BM.doc,       ftype:'INVERSE'},
+      {label:'CBM Util',       vals:a.inv_cbm_util, mod:BM.cbm_util,   ftype:'INVERSE'},
+      {label:'CBM/pcs',        vals:a.inv_cbm_pcs,  mod:BM.cbm_pcs,   ftype:'INVERSE'},
+    ];
+    return factors.map((f,fi)=>facRow(fi===0?'Storage':'',f.label,i_arr?i_arr.map(i=>f.vals[i]):f.vals,f.mod,f.ftype,factors.length,fi===0)).join('');
+  }
+  function obFactorRows(i_arr){
+    if(!a) return '';
+    const factors=[
+      {label:'Pack Prod (items/hr)',vals:a.ob_pack,    mod:BM.pack_prod, ftype:'DIRECT'},
+      {label:'Sort Prod (items/hr)',vals:a.ob_sort,    mod:BM.sort_prod, ftype:'DIRECT'},
+      {label:'Sort Items %',        vals:a.ob_sort_pct,mod:BM.sort_pct,  ftype:'INVERSE'},
+    ];
+    return factors.map((f,fi)=>facRow(fi===0?'Packing/Sort':'',f.label,i_arr?i_arr.map(i=>f.vals[i]):f.vals,f.mod,f.ftype,factors.length,fi===0)).join('');
+  }
+
+  let h='';
+  // ─── Part 1: Utilisation ───────────────────────────────────
+  h+=secH('Part 1: Utilisation');
+  h+=subH('Monthly Avg Actual ADO Utilisation');
+  h+=row('IB','IB Avg Util %',80,d.ib.avgUtil,false,v=>v+'%',true);
+  h+=ibFactorRows();
+  h+=row('INV','INV (CBM Util) Avg %',82,d.inv.avgUtil,false,v=>v+'%',true);
+  h+=invFactorRows();
+  h+=row('OB','OB Avg Util %',80,d.ob.avgUtil,false,v=>v+'%',true);
+  h+=obFactorRows();
+
+  h+=subH('Monthly Peak Actual ADO Utilisation');
+  h+=row('IB','IB Peak Util %',90,d.ib.peakUtil,false,v=>v+'%',true);
+  h+=row('INV','INV (CBM Util) Peak %',85,d.inv.peakUtil,false,v=>v+'%',true);
+  h+=row('OB','OB Peak Util %',85,d.ob.peakUtil,false,v=>v+'%',true);
+
+  // ─── Max Capacity ──────────────────────────────────────────
+  h+=subH('Max Capacity — Vary based on Ops performance');
+  h+=row('IB','IB (qty) — Max ADO',d.theo.ibADO,d.ib.maxADO,true,v=>Math.round(v).toLocaleString());
+  h+=`<tr><td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);">${fnT('INV')}</td><td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">Inv (CBM)</td>${benchC(Math.round(14264*.38),v=>v.toLocaleString())}${d.inv.maxCBM.map(v=>`<td class="nc" style="border-bottom:1px solid var(--border);"><div style="font-weight:600;">${Math.round(v).toLocaleString()}</div></td>`).join('')}${mtdC()}</tr>`;
+  h+=row('OB','PO OB — Max ADO',d.theo.obADO,d.ob.maxADO,true,v=>Math.round(v).toLocaleString());
+  h+=`<tr><td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);">${fnT('OB')}</td><td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">MTO OB (equiv ADO)</td>${benchC(94345,v=>Math.round(v).toLocaleString())}${d.mto.maxADO.map(v=>`<td class="nc" style="border-bottom:1px solid var(--border);"><div style="font-weight:600;">${Math.round(v).toLocaleString()}</div></td>`).join('')}${mtdC()}</tr>`;
+
+  h+=subH('Fixed Benchmark Reference');
+  [['IB','IB (qty) ADO',d.theo.ibADO],['INV','Inv (CBM)',Math.round(14264*.38)],['OB','PO OB ADO',d.theo.obADO]].forEach(([fn,lbl,val])=>{
+    h+=`<tr><td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);">${fnT(fn)}</td><td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">${lbl}</td>${benchC(val,v=>typeof v==='number'?Math.round(v).toLocaleString():v)}${mo.map(()=>`<td class="nc" style="border-bottom:1px solid var(--border);color:var(--muted);">${typeof val==='number'?Math.round(val).toLocaleString():val}</td>`).join('')}${mtdC()}</tr>`;
+  });
+
+  // ─── Space Efficiency ─────────────────────────────────────
+  if(d.spaceEff){
+    h+=secH('Space Efficiency','bl');
+    h+=subH('AVG view — general monthly space efficiency');
+    const se=d.spaceEff;
+    [['IB','AVG IB ADO/SQM',60,se.avgIBADOsqm,true,null],
+     ['OB','AVG OB ADO/SQM',55,se.avgOBADOsqm,true,null],
+     ['INV','AVG CBM/SQM',0.44,se.avgCBMsqm,false,v=>v.toFixed(3)],
+     ['INV','AVG CBM/ADO',0.05,se.avgCBMado,false,v=>v.toFixed(4)],
+    ].forEach(([fn,lbl,b,arr,good,fmt])=>{ h+=row(fn,lbl,b,arr,good,fmt); });
+    h+=subH('MAX view');
+    [['IB','MAX IB ADO/SQM',90,se.maxIBADOsqm,true,null],
+     ['OB','MAX OB ADO/SQM',80,se.maxOBADOsqm,true,null],
+    ].forEach(([fn,lbl,b,arr,good,fmt])=>{ h+=row(fn,lbl,b,arr,good,fmt); });
+  }
+  tbody.innerHTML=h;
+}
+
+
+// ══════════════════════════════════════════════════
+// IMPACT TABLE
+// ══════════════════════════════════════════════════
+function buildImpactTable(){
+  const d=WH[CUR],tbody=document.getElementById('impTbl');
+  if(!tbody)return;
+  if(!d.act){tbody.innerHTML=`<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted);">Detailed data available for PHB only</td></tr>`;return;}
+  const a=d.act;
+  const fnT=fn=>`<span style="font-family:var(--mono);font-size:9px;font-weight:700;color:${fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)'};background:${fn==='IB'?'var(--ib-l)':fn==='INV'?'var(--inv-l)':'var(--ob-l)'};padding:1px 6px;border-radius:6px;">${fn}</span>`;
+  tbody.innerHTML=IMP_FACTORS.map(f=>{
+    const modDisp=f.scale?(r1(f.mod*f.scale)+f.unit):(f.dp?f.mod.toFixed(f.dp):r1(f.mod));
+    const cells=[0,1,2].map(i=>{
+      const av=a[f.key]?.[i];if(av===undefined)return'<td>—</td>';
+      const avDisp=f.scale?(r1(av*f.scale)+f.unit):(f.dp?av.toFixed(f.dp):r1(av));
+      const fd=pdiff(f.scale?av*f.scale:av,f.scale?f.mod*f.scale:f.mod);
+      const ci=f.type==='INVERSE'?invImp(av,f.mod):dirImp(av,f.mod);
+      const pc=ci>0?'var(--ok)':'var(--danger)';
+      return `<td style="text-align:right;padding:6px 9px;border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:600;">${avDisp}</div>
+        <div style="font-family:var(--mono);font-size:9px;color:${col(fd,f.type==='DIRECT')};">${sign(fd)}</div>
+        <div style="font-family:var(--mono);font-size:9px;font-weight:700;color:${pc};">${sign(ci)} cap</div>
+      </td>`;
+    }).join('');
+    const typeC=f.type==='INVERSE'?'b-inv':'b-dir';
+    return `<tr>
+      <td style="padding:6px 9px;border-bottom:1px solid var(--border);">${fnT(f.fn)}</td>
+      <td style="padding:6px 9px;font-size:10px;color:var(--muted);border-bottom:1px solid var(--border);">${f.step}</td>
+      <td style="padding:6px 9px;font-weight:600;border-bottom:1px solid var(--border);">${f.label}</td>
+      <td style="padding:6px 9px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);">${modDisp}</td>
+      ${cells}
+      <td style="padding:6px 9px;border-bottom:1px solid var(--border);"><span class="badge ${typeC}">${f.type}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// ANALYSIS CHARTS
+// ══════════════════════════════════════════════════
+function buildAnaCharts(){
+  const d=WH[CUR],a=d.act;
+  const fnC=fn=>fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)';
+  // helper
+  function mkC(id,type,data,opts){
+    const canvas=document.getElementById(id);if(!canvas)return;
+    try{if(CHARTS[id])CHARTS[id].destroy();}catch(e){}
+    CHARTS[id]=new Chart(canvas,{type,data,options:{responsive:true,plugins:{legend:{labels:{color:GR.tick,font:{size:10},boxWidth:10}}},...opts}});
+  }
+
+  // IB Steps
+  const ibSC=['rgba(26,111,212,.7)','rgba(212,43,43,.75)','rgba(90,157,232,.55)'];
+  const ibSL=['Arrival Staging','Receiving','Putaway'];
+  const ibSD=[[d.ibSteps.jan[0],d.ibSteps.feb[0],d.ibSteps.mar[0]],
+              [d.ibSteps.jan[1],d.ibSteps.feb[1],d.ibSteps.mar[1]],
+              [d.ibSteps.jan[2],d.ibSteps.feb[2],d.ibSteps.mar[2]]];
+  mkC('cIBs','bar',{labels:MO,datasets:ibSL.map((l,i)=>({label:l,data:ibSD[i],backgroundColor:ibSC[i],borderRadius:3,barPercentage:.7,categoryPercentage:.85}))},{scales:{x:XS,y:mkY('Daily ADO',0,Math.ceil(Math.max(...ibSD.flat())*1.2/50000)*50000)}});
+
+  // IB Factor impact
+  if(a){
+    mkC('cIBf','bar',{labels:MO,datasets:[
+      {label:'Recv wait cap Δ%',data:MO.map((_,i)=>r1(invImp(a.ib_wait_recv[i],8.5))),backgroundColor:'rgba(212,43,43,.7)',borderRadius:3},
+      {label:'PO prod cap Δ%',data:MO.map((_,i)=>r1(dirImp(a.ib_po_prod[i],740))),backgroundColor:'rgba(26,111,212,.65)',borderRadius:3},
+      {label:'MT prod cap Δ%',data:MO.map((_,i)=>r1(dirImp(a.ib_mt_prod[i],800))),backgroundColor:'rgba(26,111,212,.35)',borderRadius:3},
+      {label:'Putaway wait cap Δ%',data:MO.map((_,i)=>r1(invImp(a.ib_wait_put[i],3.0))),backgroundColor:'rgba(199,91,0,.6)',borderRadius:3},
+    ]},{scales:{x:XS,y:{...mkY('Cap Δ% vs Benchmark',null,null,v=>v+'%'),grid:{color:GR.grid}}},plugins:{legend:{labels:{color:GR.tick,font:{size:10},boxWidth:10}}}});
+  }
+
+  // INV CBM util & DOC
+  if(a){
+    mkC('cINVu','line',{labels:MO,datasets:[
+      {label:'Peak CBM Util %',data:d.inv.peakUtil,borderColor:'rgba(212,43,43,.85)',backgroundColor:'rgba(212,43,43,.08)',fill:true,tension:.35,yAxisID:'y',pointRadius:5,borderWidth:2.5},
+      {label:'Benchmark 82%',data:MO.map(()=>82),borderColor:'rgba(26,122,74,.5)',borderDash:[5,4],fill:false,pointRadius:0,yAxisID:'y'},
+      {label:'DOC (days)',data:a.inv_doc,borderColor:'rgba(199,91,0,.85)',backgroundColor:'rgba(199,91,0,.06)',fill:true,tension:.35,yAxisID:'y2',pointRadius:5,borderWidth:2.5},
+      {label:'Benchmark DOC 23d',data:MO.map(()=>23),borderColor:'rgba(26,122,74,.5)',borderDash:[5,4],fill:false,pointRadius:0,yAxisID:'y2'},
+    ]},{scales:{x:XS,y:{position:'left',min:70,max:100,ticks:{color:'#d42b2b',callback:v=>v+'%'},grid:{color:GR.grid},title:{display:true,text:'CBM Util %',color:'#d42b2b',font:{size:9}}},y2:{position:'right',min:18,max:36,ticks:{color:'#c75b00',callback:v=>v+'d'},grid:{drawOnChartArea:false},title:{display:true,text:'DOC (days)',color:'#c75b00',font:{size:9}}}}});
+
+    // INV factor impact
+    mkC('cINVf','bar',{labels:MO,datasets:[
+      {label:'DOC cap Δ%',data:MO.map((_,i)=>r1(invImp(a.inv_doc[i],23))),backgroundColor:'rgba(212,43,43,.7)',borderRadius:3},
+      {label:'CBM util cap Δ%',data:MO.map((_,i)=>r1(invImp(a.inv_cbm_util[i],.82))),backgroundColor:'rgba(196,122,0,.7)',borderRadius:3},
+      {label:'CBM/pcs cap Δ%',data:MO.map((_,i)=>r1(invImp(a.inv_cbm_pcs[i],.001194))),backgroundColor:'rgba(199,91,0,.45)',borderRadius:3},
+      {label:'IOR cap Δ%',data:MO.map((_,i)=>r1(invImp(a.inv_ior[i],1.5))),backgroundColor:'rgba(26,122,74,.6)',borderRadius:3},
+    ]},{scales:{x:XS,y:{...mkY('Cap Δ% vs Benchmark',null,null,v=>v+'%'),grid:{color:GR.grid}}}});
+  }
+
+  // OB Steps
+  const obSC=['rgba(26,122,74,.65)','rgba(212,43,43,.75)','rgba(74,170,116,.55)','rgba(26,122,74,.4)'];
+  const obSL=['Sorting','Packing','Pre-sorting','PO Staging'];
+  const obSD=obSL.map((_,si)=>MO.map((_,mi)=>[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar][mi][si]));
+  mkC('cOBs','bar',{labels:MO,datasets:obSL.map((l,si)=>({label:l,data:obSD[si],backgroundColor:obSC[si],borderRadius:3,barPercentage:.7,categoryPercentage:.85}))},{scales:{x:XS,y:mkY('Daily ADO',0,Math.ceil(Math.max(...obSD.flat())*1.2/50000)*50000)}});
+
+  // OB prod
+  if(a){
+    mkC('cOBf','bar',{labels:MO,datasets:[
+      {label:'Pack prod (items/hr)',data:a.ob_pack,backgroundColor:'rgba(212,43,43,.7)',borderRadius:3,yAxisID:'y'},
+      {label:'Sort prod (items/hr)',data:a.ob_sort,backgroundColor:'rgba(26,122,74,.65)',borderRadius:3,yAxisID:'y'},
+      {label:'Benchmark pack 85',data:MO.map(()=>85),type:'line',borderColor:'rgba(212,43,43,.5)',borderDash:[5,4],fill:false,pointRadius:0,yAxisID:'y'},
+      {label:'Benchmark sort 240',data:MO.map(()=>240),type:'line',borderColor:'rgba(26,122,74,.5)',borderDash:[5,4],fill:false,pointRadius:0,yAxisID:'y'},
+    ]},{scales:{x:XS,y:mkY('Productivity (items/hr)',0,300)}});
+  }
+
+  // Main
+  const allMax=[...d.ib.maxADO,...d.inv.maxADO,...d.ob.maxADO,d.theo.ibADO,d.theo.invADO,d.theo.obADO];
+  mkC('cMain','bar',{labels:MO,datasets:[
+    {label:'IB Theoretical',data:MO.map(()=>d.theo.ibADO),type:'line',borderColor:'rgba(26,111,212,.7)',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false,order:0},
+    {label:'INV Theoretical',data:MO.map(()=>d.theo.invADO),type:'line',borderColor:'rgba(199,91,0,.7)',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false,order:0},
+    {label:'OB Theoretical',data:MO.map(()=>d.theo.obADO),type:'line',borderColor:'rgba(26,122,74,.7)',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false,order:0},
+    {label:'IB Max Cap',data:d.ib.maxADO,backgroundColor:'rgba(26,111,212,.75)',borderRadius:3,barPercentage:.5,categoryPercentage:.75,order:1},
+    {label:'IB Throughput',data:d.ib.actualADO,backgroundColor:'rgba(90,157,232,.45)',borderRadius:3,barPercentage:.5,categoryPercentage:.75,order:1},
+    {label:'INV Max Cap',data:d.inv.maxADO,backgroundColor:'rgba(199,91,0,.75)',borderRadius:3,barPercentage:.5,categoryPercentage:.75,order:1},
+    {label:'OB Max Cap',data:d.ob.maxADO,backgroundColor:'rgba(26,122,74,.75)',borderRadius:3,barPercentage:.5,categoryPercentage:.75,order:1},
+    {label:'OB Throughput',data:d.ob.actualADO,backgroundColor:'rgba(74,170,116,.45)',borderRadius:3,barPercentage:.5,categoryPercentage:.75,order:1},
+  ]},{scales:{x:XS,y:mkY('Daily ADO',0,Math.ceil(Math.max(...allMax)*1.15/50000)*50000)}});
+}
+
+function buildMonthInsights(){
+  const d=WH[CUR];
+  const container=document.getElementById('monthCards');
+  if(!d.act){
+    const msg='<div class="card" style="text-align:center;padding:40px;color:var(--muted);">Detailed insights available for PHB only</div>';
+    if(container)container.innerHTML=msg;
+    const _ac2=document.getElementById('ana-monthCards');if(_ac2)_ac2.innerHTML=msg;
+    return;
+  }
+  const a=d.act;
+  const months=['Jan-26','Feb-26','Mar-26'];
+
+  function simWithOverride(i,ovr){
+    const base={ib_wait_recv:a.ib_wait_recv[i],ib_items_recv:a.ib_items_recv[i],
+      ib_po_prod:a.ib_po_prod[i],ib_mt_prod:a.ib_mt_prod[i],ib_pct_mti:a.ib_pct_mti[i],
+      ib_wait_put:a.ib_wait_put[i],ib_put_hrs:a.ib_put_hrs[i],ib_items_put:a.ib_items_put[i],
+      inv_ior:a.inv_ior[i],inv_doc:a.inv_doc[i],inv_cbm_pcs:a.inv_cbm_pcs[i],inv_cbm_util:a.inv_cbm_util[i],
+      ob_pack:a.ob_pack[i],ob_sort:a.ob_sort[i],ob_sort_pct:a.ob_sort_pct[i],ob_items_pal:a.ob_items_pal[i]};
+    Object.assign(base,ovr);
+    const ibs=calcIB(base), obs=calcOB(base), inv=calcINV(base);
+    const ib=Math.min(...ibs.map(s=>s.v));
+    const ob=Math.min(...obs.map(s=>s.v));
+    return {ib,inv,ob,sys:Math.min(ib,ob,inv),ibBN:ibs.find(s=>s.v===ib).n,obBN:obs.find(s=>s.v===ob).n};
+  }
+
+  container.innerHTML=months.map((mo,i)=>{
+    // Compute actual caps
+    const act_obj={ib_wait_recv:a.ib_wait_recv[i],ib_items_recv:a.ib_items_recv[i],
+      ib_po_prod:a.ib_po_prod[i],ib_mt_prod:a.ib_mt_prod[i],ib_pct_mti:a.ib_pct_mti[i],
+      ib_wait_put:a.ib_wait_put[i],ib_put_hrs:a.ib_put_hrs[i],ib_items_put:a.ib_items_put[i],
+      inv_ior:a.inv_ior[i],inv_doc:a.inv_doc[i],inv_cbm_pcs:a.inv_cbm_pcs[i],inv_cbm_util:a.inv_cbm_util[i],
+      ob_pack:a.ob_pack[i],ob_sort:a.ob_sort[i],ob_sort_pct:a.ob_sort_pct[i],ob_items_pal:a.ob_items_pal[i]};
+    const ibs=calcIB(act_obj),obs=calcOB(act_obj),invCap=calcINV(act_obj);
+    const ibCap=Math.min(...ibs.map(s=>s.v));
+    const obCap=Math.min(...obs.map(s=>s.v));
+    const sysCap=Math.min(ibCap,obCap,invCap);
+    const ibBN=ibs.find(s=>s.v===ibCap).n;
+    const obBN=obs.find(s=>s.v===obCap).n;
+    const sysFn=sysCap===ibCap?'IB':sysCap===obCap?'OB':'INV';
+    const sysFnC=sysFn==='IB'?'var(--ib)':sysFn==='INV'?'var(--inv)':'var(--ob)';
+
+    // Cap deltas vs model
+    const ibVsM=dirImp(ibCap,d.theo.ibADO);
+    const invVsM=dirImp(invCap,d.theo.invADO);
+    const obVsM=dirImp(obCap,d.theo.obADO);
+
+    // ── Key factor calcs ──────────────────────────────────────────────
+    const avgProd=a.ib_po_prod[i]*(1-a.ib_pct_mti[i])+a.ib_mt_prod[i]*a.ib_pct_mti[i];
+    const avgProdMod=MOD.ib_po_prod*(1-MOD.ib_pct_mti)+MOD.ib_mt_prod*MOD.ib_pct_mti;
+    const mt_cap_imp=dirImp(a.ib_mt_prod[i],MOD.ib_mt_prod);
+    const recv_wait_cap=invImp(a.ib_wait_recv[i],MOD.ib_wait_recv);
+    const put_wait_cap=invImp(a.ib_wait_put[i],MOD.ib_wait_put);
+    const doc_cap=invImp(a.inv_doc[i],MOD.inv_doc);
+    const util_cap=invImp(a.inv_cbm_util[i],MOD.inv_cbm_util);
+    const cbmpcs_cap=invImp(a.inv_cbm_pcs[i],MOD.inv_cbm_pcs);
+    const pack_cap=dirImp(a.ob_pack[i],MOD.ob_pack);
+    const invNetCap=dirImp(invCap,d.theo.invADO);
+
+    // ── Insight bullets ───────────────────────────────────────────────
+    const bullets=[];
+    // IB
+    bullets.push({fn:'IB',step:'Receiving',sev:avgProd<avgProdMod*0.97?'danger':'ok',
+      text:`Wtd avg recv prod = <strong>${r1(avgProd)} items/hr</strong> vs model ${r1(avgProdMod)} → cap impact <strong>${sign(dirImp(avgProd,avgProdMod))}</strong>. PO: ${r1(a.ib_po_prod[i])} items/hr (${sign(dirImp(a.ib_po_prod[i],MOD.ib_po_prod))}), MT: <strong>${r1(a.ib_mt_prod[i])} items/hr (${sign(mt_cap_imp)})</strong> weighted at ${r1(a.ib_pct_mti[i]*100)}% of volume. ${a.ib_mt_prod[i]<MOD.ib_mt_prod*0.9?`MT crash drives ${r1(a.ib_pct_mti[i]*Math.abs(mt_cap_imp))} ppt drag on receiving cap.`:''}`});
+    bullets.push({fn:'IB',step:'Arr. Staging',sev:recv_wait_cap<-10?'danger':'warn',
+      text:`Pending recv wait = <strong>${r1(a.ib_wait_recv[i])}hr</strong> vs model 8.5hr. Inverse formula: (8.5/${r1(a.ib_wait_recv[i])}−1) = <strong>${sign(recv_wait_cap)}</strong> staging cap. Items/pallet ${r1(a.ib_items_recv[i])} (${sign(dirImp(a.ib_items_recv[i],MOD.ib_items_recv))}) partially offsets — but wait drag dominates.`});
+    bullets.push({fn:'IB',step:'Putaway',sev:put_wait_cap<-8?'danger':a.ib_wait_put[i]>MOD.ib_wait_put?'warn':'ok',
+      text:`Putaway wait = <strong>${r1(a.ib_wait_put[i])}hr</strong> vs model 3.0hr → (3.0/${r1(a.ib_wait_put[i])}−1) = <strong>${sign(put_wait_cap)}</strong> putaway cap. <strong>Upstream driver: INV CBM util ${r1(a.inv_cbm_util[i]*100)}% — full shelves make locating free slots slower.</strong> Items/pallet putaway: ${r1(a.ib_items_put[i])} (${sign(dirImp(a.ib_items_put[i],MOD.ib_items_put))}).`});
+    // INV
+    bullets.push({fn:'INV',step:'Storage',sev:doc_cap<-8?'danger':'warn',
+      text:`DOC = <strong>${r1(a.inv_doc[i])} days</strong> vs model 23d → (23/${r1(a.inv_doc[i])}−1) = <strong>${sign(doc_cap)}</strong> INV cap. Each extra day of DOC above 23d consumes ~${fK(invCap/(a.inv_doc[i]/1))} ADO/day of capacity. At current DOC, reducing to 23d would release <strong>${fK(invCap*a.inv_doc[i]/23-invCap)} additional ADO/day</strong>.`});
+    bullets.push({fn:'INV',step:'Storage',sev:a.inv_cbm_util[i]>0.87?'danger':'warn',
+      text:`CBM util = <strong>${r1(a.inv_cbm_util[i]*100)}%</strong> vs model 82% → (0.82/${r1(a.inv_cbm_util[i])}−1) = <strong>${sign(util_cap)}</strong>. At ${r1(a.inv_cbm_util[i]*100)}% every +1% util costs ${r1(invImp(a.inv_cbm_util[i]+0.01,a.inv_cbm_util[i]))}% additional cap. <strong>Secondary: high util forces putaway wait to ${r1(a.ib_wait_put[i])}hr (model 3hr) — double penalty.</strong>`});
+    bullets.push({fn:'INV',step:'Storage',sev:a.inv_cbm_pcs[i]>MOD.inv_cbm_pcs*1.02?'warn':'ok',
+      text:`CBM/pcs = <strong>${a.inv_cbm_pcs[i].toFixed(5)}</strong> vs model ${MOD.inv_cbm_pcs.toFixed(5)} → ${sign(cbmpcs_cap)} INV cap. <strong>Compound cascade: larger items → fewer items/pallet in IB staging (${r1(a.ib_items_recv[i])} vs 1200) AND putaway (${r1(a.ib_items_put[i])} vs 900) AND more CBM consumed in storage — three-step hit from one SKU-mix shift.</strong>`});
+    // OB
+    bullets.push({fn:'OB',step:'Packing',sev:pack_cap<-3?'danger':pack_cap>5?'ok':'warn',
+      text:`Pack prod = <strong>${r1(a.ob_pack[i])} items/hr</strong> vs model 85 → <strong>${sign(pack_cap)}</strong> packing cap. Every +1 items/hr with 140 stations × 24hrs = +${fK(140*24/(a.inv_ior[i]))} ADO/day. OB capacity ${fK(obCap)} with BN at ${obBN}${obBN==='Packing'?' ⚠':''}.`});
+
+    // ── Simulation scenarios ──────────────────────────────────────────
+    const scenarios=[];
+    // Fix MT recv prod to model
+    if(a.ib_mt_prod[i]<MOD.ib_mt_prod*0.95){
+      const s=simWithOverride(i,{ib_mt_prod:MOD.ib_mt_prod});
+      scenarios.push({label:`Restore MT recv prod: ${r1(a.ib_mt_prod[i])} → ${MOD.ib_mt_prod} items/hr`,...s});
+    }
+    // Fix recv wait
+    if(a.ib_wait_recv[i]>MOD.ib_wait_recv*1.05){
+      const s=simWithOverride(i,{ib_wait_recv:MOD.ib_wait_recv});
+      scenarios.push({label:`Reduce recv wait: ${r1(a.ib_wait_recv[i])}hr → ${MOD.ib_wait_recv}hr`,...s});
+    }
+    // Fix DOC
+    if(a.inv_doc[i]>MOD.inv_doc*1.03){
+      const s=simWithOverride(i,{inv_doc:MOD.inv_doc});
+      scenarios.push({label:`Reduce DOC: ${r1(a.inv_doc[i])}d → ${MOD.inv_doc}d`,...s});
+    }
+    // Fix CBM util (better storage density: 0.38→0.42 CBM/SQM)
+    {const newUtil=Math.min(a.inv_cbm_util[i],0.82);
+     if(newUtil<a.inv_cbm_util[i]){
+      const s=simWithOverride(i,{inv_cbm_util:0.82});
+      scenarios.push({label:`Reduce CBM util: ${r1(a.inv_cbm_util[i]*100)}% → 82% (add shelving/move big SKUs)`,...s});
+    }}
+    // Fix CBM/pcs (rationalise SKU mix: reduce to modelled average)
+    if(a.inv_cbm_pcs[i]>MOD.inv_cbm_pcs*1.02){
+      const s=simWithOverride(i,{inv_cbm_pcs:MOD.inv_cbm_pcs});
+      scenarios.push({label:`Reduce CBM/pcs: ${a.inv_cbm_pcs[i].toFixed(5)} → ${MOD.inv_cbm_pcs.toFixed(5)} (move large SKUs to bigger WH)`,...s});
+    }
+    // Combined
+    const combo={};
+    if(a.ib_mt_prod[i]<MOD.ib_mt_prod*0.95) combo.ib_mt_prod=MOD.ib_mt_prod;
+    if(a.ib_wait_recv[i]>MOD.ib_wait_recv*1.05) combo.ib_wait_recv=MOD.ib_wait_recv;
+    if(a.inv_doc[i]>MOD.inv_doc*1.03) combo.inv_doc=MOD.inv_doc;
+    if(a.inv_cbm_util[i]>0.83) combo.inv_cbm_util=0.82;
+    if(a.inv_cbm_pcs[i]>MOD.inv_cbm_pcs*1.02) combo.inv_cbm_pcs=MOD.inv_cbm_pcs;
+    if(Object.keys(combo).length>1){
+      const s=simWithOverride(i,combo);
+      scenarios.push({label:'✦ Combined: all fixes above',...s,combined:true});
+    }
+
+    const simRows=scenarios.map(s=>{
+      const dib=pdiff(s.ib,ibCap),dinv=pdiff(s.inv,invCap),dob=pdiff(s.ob,obCap),dsys=pdiff(s.sys,sysCap);
+      const cc=(v)=>`style="font-family:var(--mono);font-size:10px;color:${v>0.5?'var(--ok)':v<-0.5?'var(--danger)':'var(--muted)'};"`;
+      return `<tr class="${s.combined?'fix':''}">
+        <td style="font-size:11px;${s.combined?'font-weight:700;color:var(--ok);':''}">${s.label}</td>
+        <td ${cc(dib)}>${fK(s.ib)} (${sign(dib)})</td>
+        <td ${cc(dinv)}>${fK(s.inv)} (${sign(dinv)})</td>
+        <td ${cc(dob)}>${fK(s.ob)} (${sign(dob)})</td>
+        <td style="font-family:var(--mono);font-size:10px;font-weight:700;color:${dsys>0.5?'var(--ok)':dsys<-0.5?'var(--danger)':'var(--muted)'};">${fK(s.sys)} (${sign(dsys)})</td>
+        <td style="font-size:10px;color:var(--muted);">${s.sys===s.ib?s.ibBN:s.sys===s.ob?s.obBN:'INV'}</td>
+      </tr>`;
+    }).join('');
+
+    // ── Action cards ──────────────────────────────────────────────────
+    const actions=[];
+
+    // INV actions (always priority 1 since system BN)
+    actions.push({pri:'p1',fn:'INV',
+      title:'Reduce Days of Cover: '+r1(a.inv_doc[i])+'d → 23d',
+      why:`DOC is ${sign(pdiff(a.inv_doc[i],MOD.inv_doc))} above model. Current INV Max ADO = ${fK(invCap)}. Each day of DOC above 23 occupies ${fK((invCap/a.inv_doc[i]))} ADO-worth of space that could support live orders.`,
+      how:[
+        'Align replenishment lead time with supply chain team — target weekly restock cycles for fast-moving SKUs',
+        'Identify SKUs with DOC >45 days (slow movers) and reduce their safety stock by 30%',
+        'Implement consignment model for bulky slow movers — supplier holds stock until order confirmed',
+      ],
+      impact:`Reducing DOC ${r1(a.inv_doc[i])}d → 23d: new INV cap = ${fK(simWithOverride(i,{inv_doc:23}).inv)} ADO/day (${sign(pdiff(simWithOverride(i,{inv_doc:23}).inv,invCap))})`});
+
+    if(a.inv_cbm_util[i]>0.85){
+      actions.push({pri:'p1',fn:'INV',
+        title:'Reduce CBM Utilisation: '+r1(a.inv_cbm_util[i]*100)+'% → ≤82%',
+        why:`CBM util at ${r1(a.inv_cbm_util[i]*100)}% leaves <${r1((1-a.inv_cbm_util[i])*100)}% headroom. At this level, any demand spike immediately hits ceiling. Also causing putaway wait ${r1(a.ib_wait_put[i])}hr (model 3hr) — every pallet waits longer to be slotted.`,
+        how:[
+          `<strong>Optimise shelf configuration:</strong> PHB has 14,264 SQM at CBM/SQM 0.38. Installing taller shelving (add 1 extra tier) in 20% of aisles increases capacity by +${r1(14264*0.38*0.2/a.inv_cbm_util[i]/100)}+ CBM — check structural load limits first`,
+          `<strong>Identify and move large CBM/pcs SKUs:</strong> Rank all SKUs by CBM/pcs. Top 5% by volume-per-unit account for ~40% of CBM used. If a SKU has CBM/pcs >0.003 (3× model average) and DOC >30d, it is a candidate for transfer to PHK (larger WH with lower util)`,
+          `<strong>Bin size rationalisation:</strong> SKUs with CBM/pcs <0.0005 (small/flat items) are likely stored in oversized bins — right-sizing to 40% smaller bins for these SKUs can recover 8–12% loc utilisation`,
+          `<strong>SKU profile analysis:</strong> Sort SKUs by ADO/LOC ratio. SKUs with ADO/LOC <2/month are occupying slots without turning — move to bulk storage or consolidate 2 SKUs per location`,
+        ],
+        impact:`Restoring CBM util to 82%: new INV cap = ${fK(simWithOverride(i,{inv_cbm_util:0.82}).inv)} ADO/day (${sign(pdiff(simWithOverride(i,{inv_cbm_util:0.82}).inv,invCap))}). Putaway wait also expected to fall from ${r1(a.ib_wait_put[i])}hr → ~3hr.`});
+    }
+
+    if(a.inv_cbm_pcs[i]>MOD.inv_cbm_pcs*1.03){
+      actions.push({pri:'p2',fn:'INV',
+        title:`Rationalise large-SKU storage: CBM/pcs ${a.inv_cbm_pcs[i].toFixed(5)} → target ${MOD.inv_cbm_pcs.toFixed(5)}`,
+        why:`CBM/pcs has risen from 0.001112 (Jan) to ${a.inv_cbm_pcs[i].toFixed(5)} (${months[i]}). This means average item size grew ${r1(pdiff(a.inv_cbm_pcs[i],0.001112))}% over the period. Impact cascades: items/pallet in recv ${r1(a.ib_items_recv[i])} (model 1200), items/pallet in putaway ${r1(a.ib_items_put[i])} (model 900), and INV CBM/ADO rising.`,
+        how:[
+          `Analyse SKU CBM/pcs distribution: identify what % of ADO volume is from SKUs with CBM/pcs >0.002. If this accounts for >15% of ADO, it is a structural SKU mix shift`,
+          `For SKUs with CBM/pcs >0.003 (2.5× model avg) AND high DOC: these are large, slow-moving items consuming disproportionate space — negotiate with suppliers for pre-assembled or broken-case delivery`,
+          `Transfer the top 30 SKUs by CBM/pcs × monthly volume to PHK or external overflow WH. PHB should prioritise smaller CBM/pcs SKUs which maximise ADO per CBM`,
+          `Improve receiving pallet loading density: work with suppliers to ensure large-item pallets are packed to ${r1(MOD.ib_items_recv)} items/pallet not ${r1(a.ib_items_recv[i])}`,
+        ],
+        impact:`Reducing CBM/pcs from ${a.inv_cbm_pcs[i].toFixed(5)} → ${MOD.inv_cbm_pcs.toFixed(5)}: new INV cap = ${fK(simWithOverride(i,{inv_cbm_pcs:MOD.inv_cbm_pcs}).inv)} ADO/day. Also improves IB staging and putaway items/pallet.`});
+    }
+
+    if(a.ib_mt_prod[i]<MOD.ib_mt_prod*0.93){
+      actions.push({pri:'p2',fn:'IB',
+        title:`Recover MT Recv Productivity: ${r1(a.ib_mt_prod[i])} → target 700+ items/hr`,
+        why:`MT prod was 718 in Jan-26 and has fallen to ${r1(a.ib_mt_prod[i])} in ${months[i]} (${sign(mt_cap_imp)} vs model 800). MT accounts for ${r1(a.ib_pct_mti[i]*100)}% of volume. Drag on weighted avg prod: ${r1(a.ib_pct_mti[i]*Math.abs(dirImp(a.ib_mt_prod[i],MOD.ib_mt_prod)))} ppt.`,
+        how:[
+          'Conduct time-study on MT receiving process — measure scan time, label reading, system lookup per item',
+          `Compare MT prod to Jan-26 (718 items/hr). If a specific SKU category or supplier change coincides with the drop, that is the root cause`,
+          `Check MT SKU complexity: if CBM/pcs for MT items specifically has grown, heavier/bulkier MT items require more physical handling time — address with supplier packaging`,
+          `Consider rebalancing station allocation: if MT volume is declining (%MTI ${r1(a.ib_pct_mti[i]*100)}% vs ${r1(MOD.ib_pct_mti*100)}% model), reduce dedicated MT stations and redeploy to PO`,
+        ],
+        impact:`Restoring MT prod to 700: new IB cap = ${fK(simWithOverride(i,{ib_mt_prod:700}).ib)} (${sign(pdiff(simWithOverride(i,{ib_mt_prod:700}).ib,ibCap))}). To model 800: ${fK(simWithOverride(i,{ib_mt_prod:800}).ib)} (${sign(pdiff(simWithOverride(i,{ib_mt_prod:800}).ib,ibCap))}).`});
+    }
+
+    if(a.ib_wait_recv[i]>MOD.ib_wait_recv*1.1){
+      actions.push({pri:'p2',fn:'IB',
+        title:`Reduce Pending Recv Wait: ${r1(a.ib_wait_recv[i])}hr → target 8.5hr`,
+        why:`Wait at arrival staging ${r1(a.ib_wait_recv[i])}hr vs model 8.5hr. Inverse formula: (8.5/${r1(a.ib_wait_recv[i])}−1) = ${sign(recv_wait_cap)} on staging capacity. Long wait caused by slow recv station clearance — if recv prod is low, pallets queue longer.`,
+        how:[
+          'Analyse inbound truck arrival patterns vs station availability. If trucks arrive in waves, space them to match station throughput',
+          `Add 2 receiving stations (26 → 28): at ${r1(avgProd)} items/hr prod × 21hrs, each new station adds ${fK(r1(avgProd)*21/1.5)} ADO/day`,
+          'Implement staging zone priority flags: pallets waiting >6hr get escalated to available stations',
+        ],
+        impact:`Reducing wait to 8.5hr: new IB cap = ${fK(simWithOverride(i,{ib_wait_recv:8.5}).ib)} (${sign(pdiff(simWithOverride(i,{ib_wait_recv:8.5}).ib,ibCap))}).`});
+    }
+
+    // MTO
+    const mtoUtil=d.mto.peakUtil[i];
+    const mtoH=d.mto.handover[i];
+    if(mtoUtil>85){
+      actions.push({pri:mtoUtil>100?'p1':'p2',fn:'MTO',
+        title:`Reduce MTO Staging Dwell: handover ${mtoH}hr → target 24hr`,
+        why:`MTO staging at ${r1(mtoUtil)}% util${mtoUtil>100?' — OVERFLOW':''} due to SPX handover taking ${mtoH}hr vs 24hr target. Pallets accumulate faster than SPX clears them.`,
+        how:[
+          'Negotiate SPX collection SLA to ≤24hr. Current 38hr in Jan-26 is 58% above target',
+          'Install vertical pallet stacking (2-high) in MTO staging zone — increases effective capacity by ~40% within same footprint',
+          'Set operational alert at 90 pallets (87% of max) to trigger SPX escalation before overflow',
+          'Cross-dock strategy for top-20 MTO SKUs by volume: route directly IB→MTO without storage stop to reduce overall staging demand',
+        ],
+        impact:`Each 1hr reduction in handover duration frees ~${r1(d.mto.maxADO[i]/mtoH)} ADO/day of MTO staging capacity.`});
+    }
+
+    const actionHTML=actions.map(ac=>`
+      <div class="action-card ${ac.pri}">
+        <div class="action-hd">
+          <span class="action-pri ${ac.pri}">${ac.pri==='p1'?'P1 CRITICAL':'P2 IMPORTANT'}</span>
+          <span class="tag ${ac.fn==='IB'?'tag-ib':ac.fn==='INV'?'tag-inv':ac.fn==='OB'?'tag-ob':'tag-warn'}">${ac.fn}</span>
+          <span class="action-title">${ac.title}</span>
+        </div>
+        <div class="action-why">${ac.why}</div>
+        <ul style="margin:8px 0 10px 0;padding-left:20px;">${ac.how.map(h=>`<li style="font-size:11px;color:var(--text2);margin-bottom:4px;line-height:1.5;">${h}</li>`).join('')}</ul>
+        <div class="action-impact">📈 ${ac.impact}</div>
+      </div>`).join('');
+
+    const bulletHTML=bullets.map(b=>`
+      <div class="insight-bullet sev-${b.sev}">
+        <span class="ib-fn" style="color:${b.fn==='IB'?'var(--ib)':b.fn==='INV'?'var(--inv)':'var(--ob)'};">${b.fn}</span>
+        <span class="ib-step">${b.step}</span>
+        <span class="ib-text">${b.text}</span>
+      </div>`).join('');
+
+    const sysBNname=sysFn==='IB'?ibBN:sysFn==='INV'?'INV Storage':obBN;
+
+    return `<div class="month-insight">
+      <div class="mi-header" onclick="toggleMonth(this)">
+        <div class="mi-month-badge" style="color:${sysFnC};">${mo}</div>
+        <div class="mi-sys">
+          <div class="mi-sys-bn">System BN: <span style="color:${sysFnC};">${sysBNname}</span> — ${fK(sysCap)} ADO/day</div>
+          <div class="mi-caps">IB ${fK(ibCap)} (${sign(ibVsM)}) · INV ${fK(invCap)} (${sign(invVsM)}) · OB ${fK(obCap)} (${sign(obVsM)})</div>
+        </div>
+        <div class="mi-badges">
+          ${[{l:'IB',v:ibCap,d:ibVsM,c:'var(--ib)'},{l:'INV',v:invCap,d:invVsM,c:'var(--inv)'},{l:'OB',v:obCap,d:obVsM,c:'var(--ob)'}].map(x=>`
+          <div class="cap-badge" style="border:1px solid ${x.c};background:${x.c}18;">
+            <div class="fn" style="color:${x.c};">${x.l}</div>
+            <div class="val" style="color:${x.c};">${fK(x.v)}</div>
+            <div class="chg" style="color:${x.d>0?'var(--ok)':'var(--danger)'};">${sign(x.d)} vs model</div>
+          </div>`).join('')}
+        </div>
+        <div class="mi-chevron">›</div>
+      </div>
+      <div class="mi-body">
+        <!-- Factor bullets -->
+        <div class="insight-section">
+          <div class="is-title">Factor Analysis — Root Causes</div>
+          ${bulletHTML}
+        </div>
+        <!-- Sim table -->
+        <div class="insight-section">
+          <div class="is-title">What-If Simulation</div>
+          <div class="scrollable">
+          <table class="sim-scenario-table">
+            <thead><tr><th>Scenario</th><th>IB Cap</th><th>INV Cap</th><th>OB Cap</th><th>System Cap</th><th>New BN</th></tr></thead>
+            <tbody>
+              <tr class="base"><td>Actual (${mo})</td>
+                <td style="font-family:var(--mono);color:var(--ib);">${fK(ibCap)}</td>
+                <td style="font-family:var(--mono);color:var(--inv);">${fK(invCap)}</td>
+                <td style="font-family:var(--mono);color:var(--ob);">${fK(obCap)}</td>
+                <td style="font-family:var(--mono);font-weight:700;color:${sysFnC};">${fK(sysCap)}</td>
+                <td style="font-size:10px;color:${sysFnC};">${sysBNname}</td>
+              </tr>
+              ${simRows}
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <!-- Action cards -->
+        <div class="insight-section">
+          <div class="is-title">Action Plan — Specific Next Steps with Quantified Impact</div>
+          ${actionHTML}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  const _html=container.innerHTML;
+  const _ac=document.getElementById('ana-monthCards');
+  if(_ac)_ac.innerHTML=_html;
+}
+
+
+function toggleMonth(hdr){
+  const body=hdr.nextElementSibling;
+  const isOpen=body.classList.contains('open');
+  body.classList.toggle('open',!isOpen);
+  const chev=hdr.querySelector('.mi-chevron');
+  if(chev) chev.style.transform=isOpen?'':'rotate(90deg)';
+}
+
+
+// ══════════════════════════════════════════════════
+// STATIC INSIGHTS DATA (from Excel)
+// ══════════════════════════════════════════════════
+const INSIGHTS_DATA={
+  PHB:{
+    system:[
+      {cat:'Bottleneck',sev:'danger',text:'INV Storage is the system bottleneck in Jan, Feb, Apr. OB Packing is the system BN in Mar. IB Receiving is consistently the IB step BN.'},
+    ],
+    IB:{
+      insights:[
+        {cat:'Space Signal',sev:'warn',text:'IB peak util dropped from 88% (Jan) to 64% (Apr). Actual campaign uplift (1.3–1.9x) is consistently below the 2x model assumption. If structural, IB staging is over-provisioned by ~490 sqm.'},
+        {cat:'Productivity',sev:'warn',text:'MT receiving productivity fell from 718 (Jan) to 411 items/hr (Mar). Need to check with local team whether it is a decline trend or abnormal data. PO productivity stable near benchmark. MT is a people/process issue, not a space issue.'},
+      ],
+      questions:[
+        {num:1,q:'What is driving the IB peak volume decline (88%→64%)? Is it structural (seller scheduling, fewer onboarding campaigns) or seasonal?',purpose:'IB space reallocation decision',pri:'P2'},
+        {num:2,q:'What changed in MT receiving operations Jan→Mar causing productivity to drop from 718→411 items/hr? Is it recovering?',purpose:'IB capacity recovery',pri:'P2'},
+        {num:6,q:'Is lower campaign uplift (actual 1.3–1.9x vs 2x model) across IB and OB a structural shift?',purpose:'Re-baseline space model',pri:'P3'},
+      ],
+      actions:[
+        {pri:'P2',wh:'PHB',action:'Reduce IB pending-receiving staging SQM; transfer to INV',cond:'Only if local team confirms IB peak decline (88%→64%) is structural, not seasonal. Monitor May–Jun first',impact:'Rebalances ~250 SQM to INV where system bottleneck sits',status:'⬜ Conditional'},
+        {pri:'P3',wh:'PHB',action:'Re-baseline IB space model with actual campaign uplift data',cond:'If confirmed that lower campaign uplift vs model is structural',impact:'Right-sizes future space planning; strengthens reallocation cases',status:'⬜ Conditional'},
+      ],
+    },
+    INV:{
+      insights:[
+        {cat:'Critical Finding',sev:'danger',text:'Peak location util hitting 93–94% while avg CBM/SQM (0.318–0.326) is below the 0.380 model in Jan/Apr — WH is running out of locations before filling volumetric space. It might be a signal of bin/shelf size mismatch, and need to analyse bin selection based on historical and projected SKU profile.'},
+        {cat:'Operational Impact',sev:'warn',text:'High INV location util causes putaway wait to rise (2.85hr Jan → 3.83hr Feb, +34%). This creates a secondary drag on IB putaway capacity.'},
+        {cat:'DOC',sev:'warn',text:'DOC elevated at 25.7–30.2 days vs 23-day benchmark. Feb–Mar DOC spike (30.2d) drove avg CBM util surge and kept location util elevated. Could check with INV team whether could shorten the DOC or better schedule seller shipment.'},
+      ],
+      questions:[
+        {num:3,q:'What drove DOC to 30.2 days in Feb–Mar? Is it a recurring seasonal pattern?',purpose:'INV capacity planning',pri:'P2'},
+        {num:4,q:'Which SKU categories are stored in oversized bins relative to actual item size?',purpose:'INV density optimisation',pri:'P1'},
+      ],
+      actions:[
+        {pri:'P1',wh:'INV (all WHs)',action:'Analyse SKU profile and re-assign to more suitable shelf/bin sizes that better fit actual item dimensions, avoiding wasted bin and shelf space',cond:'Start with high-velocity SKUs with poor bin volume utilisation',impact:'Increases usable location count within existing INV SQM; reduces putaway wait time',status:'⬜ Pending'},
+        {pri:'P1',wh:'INV (all WHs)',action:'Identify and clear slow-moving stock to free high-value locations',cond:'Check with INV team to ensure lower DOC will not affect marketplace orders',impact:'Releases INV locations; reduces putaway wait',status:'⬜ Pending'},
+      ],
+    },
+    OB:{
+      insights:[
+        {cat:'Capacity',sev:'warn',text:'MTO handover improved from 38hr to 27hr — positive for staging. If the positive signal keeps remaining, could reduce MTO staging space.'},
+        {cat:'Space Signal',sev:'ok',text:'OB Packing is the binding step every month. OB staging has 31–39% excess headroom. Need to check the util at mega campaigns like 11.11, 12.12, and if util is still quite low, might be able to relocate some OB space to INV.'},
+      ],
+      questions:[
+        {num:5,q:'Is the MTO handover improvement (38hr→27–30hr) sustained? What drove it?',purpose:'OB staging space decision',pri:'P2'},
+      ],
+      actions:[
+        {pri:'P2',wh:'PHB',action:'Reallocate OB staging SQM to additional packing stations',cond:'Only after INV resolved; confirm MTO handover improvement (38hr→27hr) is sustained',impact:'Adds packing stations; lifts OB ceiling above INV BN level',status:'⬜ Conditional'},
+      ],
+    },
+  },
+  PHL:{
+    system:[
+      {cat:'Bottleneck',sev:'danger',text:'OB is the system bottleneck in all 4 months. Sorting BN in Jan–Feb; OB Staging BN in Mar–Apr. Peak OB util reached 123–213%.'},
+      {cat:'Critical Gap',sev:'danger',text:'Designed OB ADO is 65,108 (PO 44,948 + MTO 20,160). Actual MTO capacity (9,595–16,405) far below design MTO (20,160) due to long MTO handover (50.9hr in Jan vs 24hr design). PO OB cap (46K–54K) is close to design.'},
+    ],
+    IB:{
+      insights:[
+        {cat:'Space Signal',sev:'warn',text:'IB max ADO (142K–334K) is 3–7× OB ceiling (46K–54K). IB space is heavily over-allocated. IB SQM (1,952) should be partially transferred to OB where the system bottleneck sits.'},
+        {cat:'Productivity',sev:'warn',text:'PO productivity crashed to 253 items/hr in Mar (benchmark 780). Feb putaway wait spiked to 22.5hr, coinciding with 91% INV CBM util — INV fullness causing IB putaway congestion.'},
+      ],
+      questions:[
+        {num:7,q:'What caused PO productivity to crash to 253 items/hr in Mar? Was Jan IB max ADO (334K) a special setup?',purpose:'IB capacity diagnosis',pri:'P2'},
+      ],
+      actions:[
+        {pri:'P1',wh:'PHL / PHIXC',action:'Transfer SQM from IB to OB to enable additional sorting and/or packing stations',cond:'IB has 3–9× capacity surplus above system ceiling; OB is the system bottleneck. Confirm required IB staging pallets at current demand level first',impact:'Directly raises OB capacity ceiling; addresses the system bottleneck.',status:'⬜ Pending'},
+      ],
+    },
+    INV:{
+      insights:[
+        {cat:'Warning',sev:'warn',text:'Peak CBM/Loc util hit 91–92% in Feb–Mar. While not the system BN, INV fullness directly caused the Feb 22.5hr putaway wait spike that made putaway the IB bottleneck. INV above 90% util creates an IB drag.'},
+        {cat:'Data Anomaly',sev:'warn',text:'Apr INV avg CBM util (97.9%) exceeds peak util (78.7%). Needs verification with local team.'},
+      ],
+      questions:[
+        {num:8,q:'What caused Feb putaway wait to spike to 22.5hr? (Likely linked to 91% INV CBM util — confirm with ground team.)',purpose:'INV→IB linkage',pri:'P1'},
+        {num:9,q:'Please verify Apr INV data — avg CBM util (97.9%) exceeds peak util (78.7%). Data issue?',purpose:'Data integrity',pri:'P1'},
+      ],
+      actions:[
+        {pri:'P1',wh:'INV (all WHs)',action:'Identify and clear slow-moving stock to free high-value locations',cond:'Check with INV team to ensure lower DOC will not affect marketplace orders',impact:'Releases INV locations; reduces putaway wait',status:'⬜ Pending'},
+      ],
+    },
+    OB:{
+      insights:[
+        {cat:'Critical',sev:'danger',text:'4 sorting stations at near-benchmark productivity is the hard structural ceiling. OB peak util 123–213% is a capacity crisis. OB SQM (1,770) is already below theoretical design recommendation (3,011 sqm).'},
+        {cat:'Packing',sev:'danger',text:'Packing productivity (39–46 items/hr) is less than half the benchmark (85 items/hr). If recovered to benchmark, packing capacity would more than double without adding a single station.'},
+      ],
+      questions:[
+        {num:10,q:'Can sorting stations be increased from 4? What is the physical OB space constraint?',purpose:'OB bottleneck — critical',pri:'P1'},
+        {num:11,q:'Why is packing productivity (39–46 items/hr) less than half of benchmark (85 items/hr)?',purpose:'OB capacity recovery',pri:'P1'},
+        {num:12,q:'Is MTO handover improvement (50.9hr→28.3hr) sustained? What drove it?',purpose:'OB staging relief',pri:'P2'},
+      ],
+      actions:[
+        {pri:'P1',wh:'PHL / PHIXC',action:'Transfer SQM from IB to OB to enable additional sorting and/or packing stations',cond:'IB has 3–9× capacity surplus above system ceiling; OB is the system bottleneck.',impact:'Directly raises OB capacity ceiling; addresses the system bottleneck.',status:'⬜ Pending'},
+        {pri:'P3',wh:'PHB/PHL/PHIXC',action:'Re-baseline OB space model with actual campaign uplift data',cond:'If confirmed that lower campaign uplift vs model is structural across WHs',impact:'Right-sizes future space planning; strengthens reallocation cases',status:'⬜ Conditional'},
+      ],
+    },
+  },
+  PHIXC:{
+    system:[
+      {cat:'Bottleneck',sev:'danger',text:'OB is the system bottleneck all months. Sorting BN in Jan–Feb; Packing BN in Mar–Apr. OB ADO growing rapidly (+120% in 4 months: 11K→25K).'},
+    ],
+    IB:{
+      insights:[
+        {cat:'Space Signal',sev:'warn',text:'IB has 5–9× capacity surplus over OB ceiling. IB SQM (1,490) should be transferred to OB to enable more sorting/packing stations. Urgent given OB growth trajectory.'},
+      ],
+      questions:[
+        {num:15,q:'What caused PO receiving productivity to drop to 201 items/hr in Jan?',purpose:'IB diagnosis',pri:'P2'},
+      ],
+      actions:[
+        {pri:'P1',wh:'PHL / PHIXC',action:'Transfer SQM from IB to OB to enable additional sorting and/or packing stations',cond:'IB has 5–9× capacity surplus above OB ceiling. Urgent given OB growth trajectory.',impact:'Directly raises OB capacity ceiling; addresses the system bottleneck.',status:'⬜ Pending'},
+      ],
+    },
+    INV:{
+      insights:[
+        {cat:'CRITICAL RISK',sev:'danger',text:'Peak CBM util rising rapidly: 77.9% → 90.3% → 92.8% → 94.7% in 4 months. Avg CBM/SQM nearly doubled (0.41→0.90). At this trajectory, INV becomes a binding co-bottleneck within 2–3 months.'},
+        {cat:'DOC Crisis',sev:'danger',text:'DOC is 135–240 days — far beyond any benchmark. Even as DOC declined (240→135d), total inventory CBM kept rising, meaning new stock arrives faster than old stock clears. Requires immediate investigation.'},
+        {cat:'Operational Impact',sev:'warn',text:'Peak loc util above 90% is already causing putaway wait to rise (2hr→5.4hr Jan→Mar). If CBM util hits 95%+, putaway operations will become severely congested.'},
+      ],
+      questions:[
+        {num:13,q:'Why is DOC 135–240 days? Is this structural to PHIXC business model or is there clearable slow/dead stock?',purpose:'INV critical risk — escalation trigger',pri:'P1'},
+        {num:14,q:'What is driving the rapid CBM/SQM increase (0.41→0.90 in 4 months)? Specific SKU category?',purpose:'INV capacity monitoring',pri:'P1'},
+      ],
+      actions:[
+        {pri:'P1',wh:'INV (all WHs)',action:'Identify and clear slow-moving stock (DOC >90d for PHIXC) to free high-value locations',cond:'Do now — PHIXC peak CBM util at 94.7% and rising rapidly',impact:'Releases INV locations; prevents INV from becoming a co-bottleneck',status:'⬜ Pending'},
+        {pri:'P2',wh:'PHIXC',action:'Monitor INV monthly; escalate if peak CBM util exceeds 95%',cond:'Ongoing — PHIXC INV at 94.7% and rising rapidly',impact:'Early warning before INV becomes co-bottleneck alongside OB',status:'🔄 Monitoring'},
+        {pri:'P3',wh:'PHIXC',action:'Assess whether INV SQM needs to grow if DOC reduction is not feasible',cond:'Only if local team confirms high DOC is structural and cannot be reduced',impact:'Determines whether PHIXC needs a structural INV expansion',status:'⬜ Conditional'},
+      ],
+    },
+    OB:{
+      insights:[
+        {cat:'Structural',sev:'danger',text:'Only 2 sorting stations — an extremely limited structural ceiling. With only 29 packing stations, OB capacity is insufficient for MTO growth. Both need to increase urgently.'},
+        {cat:'MTO Dominance',sev:'warn',text:'MTO avg ADO (28K–51K) vastly exceeds PO OB ADO (2K–13K). OB expansion must be sized for MTO throughput. MTO staging capacity (64K–133K) is not the constraint — it is sorting and packing.'},
+      ],
+      questions:[
+        {num:16,q:'Can sorting stations be increased from 2? What is the physical space constraint?',purpose:'OB bottleneck — critical',pri:'P1'},
+        {num:17,q:'What caused sorting productivity to be only 49.7 items/hr in Jan vs 86–125 in subsequent months?',purpose:'OB diagnosis',pri:'P2'},
+        {num:18,q:'Is MTO handover improvement (28.2hr→24hr) sustained?',purpose:'OB staging assessment',pri:'P2'},
+      ],
+      actions:[
+        {pri:'P1',wh:'PHL / PHIXC',action:'Transfer SQM from IB to OB to enable additional sorting/packing stations',cond:'IB has 5–9× surplus; OB ADO growing 120% in 4 months',impact:'Addresses system bottleneck before it becomes critical',status:'⬜ Pending'},
+      ],
+    },
+  },
+};
+
+// ══════════════════════════════════════════════════
+// ANA SUB-TAB TOGGLE
+// ══════════════════════════════════════════════════
+function anaSubTab(mode){
+  const ov=document.getElementById('ana-ov');
+  const fn=document.getElementById('ana-fn');
+  const bov=document.getElementById('ana-sub-btn-ov');
+  const bfn=document.getElementById('ana-sub-btn-fn');
+  if(mode==='ov'){
+    ov.style.display='block';fn.style.display='none';
+    bov.style.background='var(--ib)';bov.style.color='#fff';bov.style.border='none';
+    bfn.style.background='var(--surface)';bfn.style.color='var(--muted)';bfn.style.border='2px solid var(--border2)';
+  } else {
+    ov.style.display='none';fn.style.display='block';
+    bfn.style.background='var(--ib)';bfn.style.color='#fff';bfn.style.border='none';
+    bov.style.background='var(--surface)';bov.style.color='var(--muted)';bov.style.border='2px solid var(--border2)';
+    buildFunctionView();
+  }
+  // Reset chart panel state when switching views
+  const cp=document.getElementById('ana-charts-panel');
+  const arr=document.getElementById('charts-arrow');
+  if(cp){cp.style.display='none';}
+  if(arr){arr.style.transform='';}
+}
+
+let chartsBuilt=false;
+function toggleAnaCharts(){
+  const panel=document.getElementById('ana-charts-panel');
+  const arr=document.getElementById('charts-arrow');
+  if(!panel)return;
+  const open=panel.style.display==='block';
+  panel.style.display=open?'none':'block';
+  if(arr)arr.style.transform=open?'':'rotate(90deg)';
+  if(!open&&!chartsBuilt){
+    chartsBuilt=true;
+    buildAnaCharts();
+  }
+}
+
+// ══════════════════════════════════════════════════
+// FUNCTION VIEW TOGGLE
+// ══════════════════════════════════════════════════
+function toggleFnBlock(fn,btn){
+  const cont=document.getElementById('fnc-'+fn);
+  if(!cont)return;
+  const open=cont.style.display==='block';
+  cont.style.display=open?'none':'block';
+  const arr=btn.querySelector('.fn-toggle-arrow');
+  if(arr) arr.style.transform=open?'':'rotate(90deg)';
+  if(!open&&cont.innerHTML.trim()==='') buildFnContent(fn);
+}
+
+// ══════════════════════════════════════════════════
+// BUILD OVERVIEW TABLE
+// ══════════════════════════════════════════════════
+function buildOverviewTable(){
+  const d=WH[CUR],a=d.act,mo=d.months;
+  const tbl=document.getElementById('ovTbl');
+  if(!tbl)return;
+  const pf=v=>(v*100).toFixed(1)+'%';
+  const fmtK=v=>v>=1000?(v/1000).toFixed(1)+'K':Math.round(v)+'';
+  const bnBg=(fn)=>fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)';
+  // util-based system BN (highest avg util function)
+  function sysUtilBN(mi){
+    const ibU=d.ib.avgUtil[mi],invU=d.inv.avgUtil[mi],obU=d.ob.avgUtil[mi];
+    const mx=Math.max(ibU,invU,obU);
+    return mx===ibU?'IB':mx===invU?'INV':'OB';
+  }
+  // absolute capacity BN (lowest max ADO)
+  function sysCapBN(mi){return d.bottleneck;}// from WH data
+  // colour cell by threshold
+  function vc(v,hi,lo){return v>=hi?'var(--danger)':v>=lo?'var(--warn)':'var(--ok)';}
+
+  // Month headers
+  const moHds=mo.map(m=>`<th style="min-width:85px;">${m}</th>`).join('');
+  let h=`<thead><tr>
+    <th style="text-align:left;width:200px;">Metric</th>
+    <th style="text-align:left;width:120px;">Sub-metric / Step</th>
+    ${moHds}
+  </tr></thead><tbody>`;
+
+  function secRow(label){return `<tr class="ov-sec"><td colspan="${2+mo.length}" style="padding:7px 10px;font-weight:700;font-size:11px;">${label}</td></tr>`;}
+  function dataRow(metric,sub,vals,fmt,colorFn,bold){
+    const cells=vals.map(v=>{
+      const disp=fmt?fmt(v):v;
+      const c=colorFn?colorFn(v):'var(--text)';
+      return `<td class="ov-val" style="color:${c};${bold?'font-weight:700;':''}font-size:${bold?'13':'11'}px;">${disp}</td>`;
+    }).join('');
+    return `<tr class="ov-row"><td class="ov-metric">${metric}</td><td class="ov-sub">${sub}</td>${cells}</tr>`;
+  }
+
+  // ── Utilisation Avg
+  h+=secRow('📊 UTILISATION — AVG ADO UTIL &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Monthly average utilisation vs max capacity</span>');
+  h+=dataRow('IB Avg Util','%',d.ib.avgUtil,v=>pf(v/100),v=>vc(v,90,80));
+  h+=dataRow('INV Avg CBM Util','%',d.inv.avgUtil,v=>pf(v/100),v=>vc(v,90,82));
+  h+=dataRow('OB Avg Util','%',d.ob.avgUtil,v=>pf(v/100),v=>vc(v,90,80));
+
+  // ── Utilisation Peak
+  h+=secRow('📊 UTILISATION — PEAK ADO UTIL &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Monthly peak day utilisation</span>');
+  h+=dataRow('IB Peak Util','%',d.ib.peakUtil,v=>pf(v/100),v=>vc(v,100,90));
+  h+=dataRow('INV Peak CBM Util','%',d.inv.peakUtil,v=>pf(v/100),v=>vc(v,95,90));
+  h+=dataRow('INV Peak Loc Util','%',d.inv.locPeakUtil,v=>pf(v/100),v=>vc(v,95,90));
+  h+=dataRow('OB Peak Util','%',d.ob.peakUtil,v=>pf(v/100),v=>vc(v,100,85));
+
+  // ── Max Capacity
+  h+=secRow('⚡ MAX CAPACITY &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Actual monthly max ADO based on real ops performance</span>');
+  h+=dataRow('IB Max ADO','K',d.ib.maxADO,fmtK);
+  h+=dataRow('INV Max ADO','K',d.inv.maxADO,fmtK);
+  h+=dataRow('OB Max ADO (PO)','K',d.ob.maxADO,fmtK);
+  // OB Design ADO (fixed)
+  const designOB=d.theo.obADO;
+  h+=`<tr class="ov-row"><td class="ov-metric">OB Design ADO</td><td class="ov-sub">K (fixed benchmark)</td>${mo.map(()=>`<td class="ov-val" style="color:var(--muted);font-size:11px;">${fmtK(designOB)}</td>`).join('')}</tr>`;
+
+  // ── System Bottleneck
+  h+=secRow('🔴 SYSTEM BOTTLENECK &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Which function caps total WH throughput</span>');
+  // Util BN (highest util)
+  h+=`<tr class="ov-row"><td class="ov-metric">System Util BN Function</td><td class="ov-sub">Highest avg util</td>${mo.map((_,mi)=>{
+    const fn=sysUtilBN(mi);
+    return `<td style="text-align:right;"><span class="ov-bn-chip" style="background:${bnBg(fn)}22;color:${bnBg(fn)};border:1px solid ${bnBg(fn)};">${fn}</span></td>`;
+  }).join('')}</tr>`;
+  // Abs cap BN
+  h+=`<tr class="ov-row"><td class="ov-metric">System Absolute Cap BN</td><td class="ov-sub">Lowest max ADO function</td>${mo.map((_,mi)=>{
+    // compute which is min
+    const caps=[d.ib.maxADO[mi],d.inv.maxADO[mi],d.ob.maxADO[mi]];
+    const mn=Math.min(...caps);
+    const fn=mn===caps[0]?'IB':mn===caps[1]?'INV':'OB';
+    return `<td style="text-align:right;"><span class="ov-bn-chip" style="background:${bnBg(fn)}22;color:${bnBg(fn)};border:1px solid ${bnBg(fn)};">${fn}</span></td>`;
+  }).join('')}</tr>`;
+  // BN step
+  const bnSteps={PHB:['—','—','Packing','—'],PHL:['Sorting','Sorting','OB Staging','OB Staging'],PHIXC:['Sorting','Sorting','Packing','Packing']};
+  const bns=bnSteps[CUR]||mo.map(()=>'—');
+  h+=`<tr class="ov-row"><td class="ov-metric">System BN Step</td><td class="ov-sub"></td>${bns.map(s=>`<td class="ov-val" style="color:var(--muted);font-size:11px;">${s}</td>`).join('')}</tr>`;
+
+  h+='</tbody>';
+  tbl.innerHTML=h;
+
+  // Build system insights
+  buildSysInsights();
+}
+
+function buildSysInsights(){
+  const box=document.getElementById('sysInsBox');
+  if(!box)return;
+  const ins=(INSIGHTS_DATA[CUR]||{}).system||[];
+  if(!ins.length){box.innerHTML='';return;}
+  const sevC={danger:'var(--danger)',warn:'var(--warn)',ok:'var(--ok)'};
+  const sevBg={danger:'#fdeaea',warn:'#fff3e0',ok:'#e6f5ed'};
+  const catBg={danger:'var(--danger)',warn:'var(--warn)',ok:'var(--ok)'};
+  let h=`<div class="si-head">💡 System Insights</div>`;
+  h+=ins.map(i=>`
+    <div class="si-row" style="border-left-color:${sevC[i.sev]};background:${sevBg[i.sev]}44;">
+      <span class="si-tag" style="background:${sevC[i.sev]}22;color:${sevC[i.sev]};">${i.cat}</span>
+      <span class="si-text">${i.text}</span>
+    </div>`).join('');
+  box.innerHTML=h;
+}
+
+// ══════════════════════════════════════════════════
+// BUILD FUNCTION VIEW
+// ══════════════════════════════════════════════════
+function buildFunctionView(){
+  // Reset all open states
+  ['IB','INV','OB'].forEach(fn=>{
+    const c=document.getElementById('fnc-'+fn);
+    if(c){c.style.display='none';c.innerHTML='';}
+    const b=document.querySelector('#fnb-'+fn+' .fn-toggle');
+    if(b){const a=b.querySelector('.fn-toggle-arrow');if(a)a.style.transform='';}
+  });
+}
+
+function buildFnContent(fn){
+  const d=WH[CUR], a=d.act, mo=d.months;
+  const cont=document.getElementById('fnc-'+fn);
+  if(!cont)return;
+  const ins=((INSIGHTS_DATA[CUR]||{})[fn])||{insights:[],questions:[],actions:[]};
+  const fnC=fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)';
+  const sevC={danger:'var(--danger)',warn:'var(--warn)',ok:'var(--ok)'};
+  const sevBg={danger:'#fdeaea',warn:'#fff3e0',ok:'#e6f5ed'};
+  const fmtK=v=>v==null?'—':v>=1000?(v/1000).toFixed(1)+'K':Math.round(v)+'';
+  const r2=v=>Math.round(v*10)/10;
+
+  let h='';
+
+  // ─── SECTION 1: Capacity & Factors ────────────────────────────────
+  h+=`<div class="fv-section">`;
+  h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">1</span> Capacity &amp; Factor Analysis</div>`;
+
+  const moHds=mo.map(m=>`<th style="min-width:100px;color:${fnC};">${m}<br><span style="font-weight:400;font-size:8px;">val / Δ vs BM</span></th>`).join('');
+  h+=`<div class="scrollx"><table class="cap-tbl" style="min-width:600px;">
+    <thead><tr>
+      <th style="width:110px;text-align:left;">Step</th>
+      <th style="text-align:left;min-width:160px;">Metric / Factor</th>
+      <th style="min-width:80px;">Benchmark</th>
+      ${moHds}
+    </tr></thead><tbody>`;
+
+  // helper: capacity delta cell (K formatted)
+  function capCell(val, bm){
+    if(val==null) return `<td style="text-align:right;color:var(--muted);">—</td>`;
+    const delta=bm?((val-bm)/Math.abs(bm)*100):null;
+    const c=delta==null?'var(--text)':delta>=0?'var(--ok)':'var(--danger)';
+    return `<td style="text-align:right;">
+      <div style="font-family:var(--mono);font-size:12px;font-weight:700;color:${c};">${fmtK(val)}</div>
+      ${delta!=null?`<div style="font-family:var(--mono);font-size:9px;color:${c};">${delta>=0?'+':''}${delta.toFixed(1)}%</div>`:''}
+    </td>`;
+  }
+  // helper: step capacity header row (bold, coloured background)
+  function stepCapRow(stepLabel, bmCap, actVals, isBN){
+    const bg=isBN?'#fdeaea3a':`${fnC}09`;
+    const bord=isBN?`border-left:3px solid var(--danger);`:`border-left:3px solid ${fnC};`;
+    return `<tr style="background:${bg};${bord}">
+      <td style="padding:6px 9px 5px 10px;font-size:11px;font-weight:700;color:${isBN?'var(--danger)':fnC};">${stepLabel}${isBN?' ⚠ BN':''}</td>
+      <td style="padding:5px 9px;font-size:11px;font-weight:700;color:${isBN?'var(--danger)':fnC};">Step Max ADO</td>
+      <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);">${fmtK(bmCap)}</td>
+      ${actVals.map(v=>capCell(v,bmCap)).join('')}
+    </tr>`;
+  }
+  // helper: factor row
+  function facRow(label, bmVal, actKey, isInverse){
+    const bmDisp=bmVal==null?'—':bmVal<1&&bmVal>0?(bmVal*100).toFixed(1)+'%':r2(bmVal);
+    const cells=mo.map((_,mi)=>{
+      const v=a&&a[actKey]?a[actKey][mi]:null;
+      if(v==null) return `<td style="text-align:right;color:var(--muted);font-size:11px;">—</td>`;
+      const delta=bmVal?((v-bmVal)/Math.abs(bmVal)*100):null;
+      const capImp=bmVal?(isInverse?((bmVal/v-1)*100):((v/bmVal-1)*100)):null;
+      const fc=delta==null?'var(--text)':isInverse?(delta<=0?'var(--ok)':'var(--danger)'):(delta>=0?'var(--ok)':'var(--danger)');
+      const cc=capImp==null?'var(--muted)':capImp>=0?'var(--ok)':'var(--danger)';
+      const disp=v<1&&v>0?(v*100).toFixed(1)+'%':r2(v);
+      return `<td style="text-align:right;padding:4px 8px;">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:600;color:${fc};">${disp}</div>
+        ${delta!=null?`<div style="font-family:var(--mono);font-size:9px;color:${fc};">${delta>=0?'+':''}${delta.toFixed(1)}%</div>`:''}
+        ${capImp!=null?`<div style="font-family:var(--mono);font-size:9px;font-weight:700;color:${cc};">${capImp>=0?'+':''}${capImp.toFixed(1)}% cap</div>`:''}
+      </td>`;
+    }).join('');
+    return `<tr class="cap-fac-row">
+      <td></td>
+      <td style="padding:4px 9px 4px 14px;font-size:11px;color:#9aa5b8;font-style:italic;">${label}</td>
+      <td style="text-align:right;padding:4px 9px;font-family:var(--mono);font-size:11px;color:var(--muted);">${bmDisp}</td>
+      ${cells}
+    </tr>`;
+  }
+
+  // helper: get step actuals from ibSteps/obSteps arrays
+  function ibStepActuals(si){
+    return mo.map((_,mi)=>{
+      const arr=[d.ibSteps.jan,d.ibSteps.feb,d.ibSteps.mar,(d.ibSteps.apr||[])][mi];
+      return arr&&arr[si]!=null?arr[si]:null;
+    });
+  }
+  function obStepActuals(si){
+    return mo.map((_,mi)=>{
+      const arr=[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar,(d.obSteps.apr||[])][mi];
+      return arr&&arr[si]!=null?arr[si]:null;
+    });
+  }
+
+  if(fn==='IB'){
+    // IB function-level row
+    const bmIB=BM.bm_ib;
+    h+=`<tr style="background:${fnC}18;border-left:3px solid ${fnC};">
+      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">📦 IB Overall Max ADO</td>
+      <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);">${fmtK(bmIB)}</td>
+      ${mo.map((_,mi)=>capCell(d.ib.maxADO[mi],bmIB)).join('')}
+    </tr>`;
+
+    // ── Arrival Staging: capacity row then factors ──
+    const ibStagBN = d.ibBN==='Arrival Staging';
+    h += stepCapRow('Arrival Staging', BM.bm_ib_staging, ibStepActuals(0), ibStagBN);
+    h += facRow('Pending Recv Wait (hr)', BM.s1_wait,   'ib_wait_recv', true);
+    h += facRow('Items / Pallet (recv)',  BM.s1_items,  'ib_items_recv', false);
+    h += facRow('IOR',                    BM.ib_ior,    'inv_ior',       true);
+
+    // ── Receiving: capacity row then factors ──
+    const ibRecvBN = d.ibBN==='Receiving';
+    h += stepCapRow('Receiving', BM.bm_ib_recv, ibStepActuals(1), ibRecvBN);
+    h += facRow('PO Recv Prod (items/hr)', BM.po_prod,  'ib_po_prod', false);
+    h += facRow('MT Recv Prod (items/hr)', BM.mt_prod,  'ib_mt_prod', false);
+    h += facRow('% MTI',                   BM.pct_mti,  'ib_pct_mti', true);
+    h += facRow('Recv Hours / Day',        BM.r_hrs,    'ib_put_hrs', false); // proxy
+
+    // ── Putaway: capacity row then factors ──
+    const ibPutBN = d.ibBN==='Putaway';
+    h += stepCapRow('Putaway Staging', BM.bm_ib_putaway, ibStepActuals(2), ibPutBN);
+    h += facRow('Putaway Wait (hr)',       BM.s3_wait,  'ib_wait_put', true);
+    h += facRow('Putaway Hrs / Day',       BM.s3_hrs,   'ib_put_hrs', false);
+    h += facRow('Items / Pallet (put)',    BM.s3_items,  'ib_items_put', false);
+
+  } else if(fn==='INV'){
+    const bmINV=d.theo.invADO;
+    h+=`<tr style="background:${fnC}18;border-left:3px solid ${fnC};">
+      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">🏭 INV Overall Max ADO</td>
+      <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);">${bmINV?fmtK(bmINV):'—'}</td>
+      ${mo.map((_,mi)=>capCell(d.inv.maxADO[mi],bmINV)).join('')}
+    </tr>`;
+    // Peak utilisation rows (no step breakdowns for INV)
+    h+=`<tr class="cap-step-row"><td colspan="2" style="padding:5px 9px 5px 12px;font-size:11px;color:${fnC};font-weight:600;">Peak CBM Util</td>
+      <td style="text-align:right;color:var(--muted);font-size:11px;">≤85%</td>
+      ${mo.map((_,mi)=>{const v=d.inv.peakUtil[mi];const c=v>=95?'var(--danger)':v>=90?'var(--warn)':'var(--ok)';return `<td style="text-align:right;"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:${c};">${v.toFixed(1)}%</div></td>`;}).join('')}
+    </tr>`;
+    h+=`<tr class="cap-step-row"><td colspan="2" style="padding:5px 9px 5px 12px;font-size:11px;color:${fnC};font-weight:600;">Peak Loc Util</td>
+      <td style="text-align:right;color:var(--muted);font-size:11px;">≤82%</td>
+      ${mo.map((_,mi)=>{const v=d.inv.locPeakUtil[mi];const c=v>=95?'var(--danger)':v>=90?'var(--warn)':'var(--ok)';return `<td style="text-align:right;"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:${c};">${v.toFixed(1)}%</div></td>`;}).join('')}
+    </tr>`;
+    // INV factors (no step split for inventory)
+    h += `<tr><td colspan="${3+mo.length}" style="padding:5px 9px;font-size:9px;color:var(--muted);font-style:italic;">Storage Factors</td></tr>`;
+    h += facRow('Days of Cover (DOC)',  BM.doc,       'inv_doc',      true);
+    h += facRow('CBM Utilisation',      BM.cbm_util,  'inv_cbm_util', true);
+    h += facRow('CBM / pcs',            BM.cbm_pcs,   'inv_cbm_pcs',  true);
+    h += facRow('IOR (INV)',            BM.inv_ior,   'inv_ior',      true);
+
+  } else { // OB
+    const bmOB=BM.bm_ob;
+    h+=`<tr style="background:${fnC}18;border-left:3px solid ${fnC};">
+      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">📤 OB Overall Max ADO</td>
+      <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);">${fmtK(bmOB)}</td>
+      ${mo.map((_,mi)=>capCell(d.ob.maxADO[mi],bmOB)).join('')}
+    </tr>`;
+
+    const obBNstep = d.obBN||'';
+    // ── Sorting ──
+    h += stepCapRow('Sorting', BM.bm_ob_sorting, obStepActuals(0), obBNstep==='Sorting');
+    h += facRow('Sort Prod (items/hr)', BM.sort_prod, 'ob_sort',     false);
+    h += facRow('Sort Items %',         BM.sort_pct,  'ob_sort_pct', true);
+    h += facRow('OB IOR',               BM.ob_ior,    'inv_ior',     true);
+
+    // ── Packing ──
+    h += stepCapRow('Packing', BM.bm_ob_packing, obStepActuals(1), obBNstep==='Packing');
+    h += facRow('Pack Prod (items/hr)', BM.pack_prod, 'ob_pack', false);
+
+    // ── Pre-sorting ──
+    h += stepCapRow('Pre-sorting', BM.bm_ob_presort, obStepActuals(2), obBNstep==='Pre-sorting');
+    h += facRow('Presort Prod (orders/hr)', BM.pre_prod, null, false);
+
+    // ── PO Staging ──
+    h += stepCapRow('PO Staging', BM.bm_ob_staging, obStepActuals(3), obBNstep==='PO Staging');
+    h += facRow('Items / Staging Pallet', BM.stg_items, 'ob_items_pal', false);
+  }
+
+  h+='</tbody></table></div></div>';
+
+  // ─── SECTION 2: Insights ──────────────────────────────────────────
+  if(ins.insights&&ins.insights.length){
+    h+=`<div class="fv-section">`;
+    h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">2</span> Insights Summary</div>`;
+    h+=ins.insights.map(i=>{
+      const bord=sevC[i.sev]||'var(--muted)';
+      const bg=sevBg[i.sev]||'var(--surface2)';
+      return `<div class="ins-card ${i.sev}" style="border-left-color:${bord};">
+        <div class="ins-card-cat" style="background:${bg};color:${bord};">${i.cat}</div>
+        <div class="ins-card-txt">${i.text}</div>
+      </div>`;
+    }).join('');
+    h+='</div>';
+  }
+
+  // ─── SECTION 3: Questions ─────────────────────────────────────────
+  if(ins.questions&&ins.questions.length){
+    h+=`<div class="fv-section">`;
+    h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">3</span> Questions for Local Teams</div>`;
+    h+=ins.questions.map(q=>{
+      const pc=q.pri==='P1'?'var(--danger)':q.pri==='P2'?'var(--warn)':'var(--ok)';
+      const pb=q.pri==='P1'?'#fdeaea':q.pri==='P2'?'#fff3e0':'#e6f5ed';
+      return `<div class="q-row">
+        <span class="q-num">#${q.num}</span>
+        <span class="q-pri" style="background:${pb};color:${pc};">${q.pri}</span>
+        <div style="flex:1;">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:2px;">${q.q}</div>
+          <div style="font-size:10px;color:var(--muted);">Purpose: ${q.purpose}</div>
+        </div>
+      </div>`;
+    }).join('');
+    h+='</div>';
+  }
+
+  // ─── SECTION 4: Actions ───────────────────────────────────────────
+  if(ins.actions&&ins.actions.length){
+    h+=`<div class="fv-section">`;
+    h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">4</span> Action to Do</div>`;
+    h+=ins.actions.map(ac=>{
+      const pc=ac.pri==='P1'?'var(--danger)':ac.pri==='P2'?'var(--warn)':'var(--ok)';
+      const pb=ac.pri==='P1'?'#fdeaea':ac.pri==='P2'?'#fff3e0':'#e6f5ed';
+      return `<div class="act-row ${ac.pri.toLowerCase()}">
+        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;">
+          <span class="act-pri-badge" style="background:${pb};color:${pc};">${ac.pri}</span>
+          <span style="font-size:10px;color:var(--muted);">${ac.wh}</span>
+          <span class="act-title">${ac.action}</span>
+        </div>
+        <div class="act-cond">🔹 Condition: ${ac.cond}</div>
+        <div class="act-impact">📈 Impact: ${ac.impact}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">${ac.status}</div>
+      </div>`;
+    }).join('');
+    h+='</div>';
+  }
+
+  cont.innerHTML=h;
+}
+
+// ══════════════════════════════════════════════════
+// INTRO TOGGLE
+// ══════════════════════════════════════════════════
+function toggleIntro(){
+  const panel=document.getElementById('intro-panel');
+  const btn=document.getElementById('btn-intro');
+  if(!panel)return;
+  const open=panel.style.display==='block';
+  panel.style.display=open?'none':'block';
+  btn.textContent=open?'ℹ️ How this works':'✕ Close';
+}
+
+// ══════════════════════════════════════════════════
+// RBAC GATE
+// ══════════════════════════════════════════════════
+const AUTHORISED_EMAILS=['wenhan.li@shopee.com','lichen.dong@shopee.com','marvel.wijaya@shopee.com'];
+let rbacTarget=null;
+
+function rbacGate(target){
+  if(target==='bench'&&benchUnlocked){toggleBench();return;}
+  if(target==='content'&&contentUnlocked){toggleContent();return;}
+  rbacTarget=target;
+  const modal=document.getElementById('rbac-modal');
+  const inp=document.getElementById('rbac-email');
+  const err=document.getElementById('rbac-error');
+  const title=document.getElementById('rbac-title');
+  title.textContent=target==='bench'?'🔒 Unlock Benchmark Editing':'✏️ Unlock Content Editing';
+  err.style.display='none';
+  inp.value='';
+  modal.style.display='flex';
+  setTimeout(()=>inp.focus(),100);
+}
+function rbacSubmit(){
+  const email=(document.getElementById('rbac-email').value||'').toLowerCase().trim();
+  const err=document.getElementById('rbac-error');
+  if(!AUTHORISED_EMAILS.includes(email)){
+    err.style.display='block';
+    document.getElementById('rbac-email').style.borderColor='#d42b2b';
+    return;
+  }
+  document.getElementById('rbac-modal').style.display='none';
+  err.style.display='none';
+  document.getElementById('rbac-email').style.borderColor='#c8d0e0';
+  if(rbacTarget==='bench') toggleBench();
+  else if(rbacTarget==='content') toggleContent();
+  rbacTarget=null;
+}
+function rbacCancel(){
+  document.getElementById('rbac-modal').style.display='none';
+  document.getElementById('rbac-email').style.borderColor='#c8d0e0';
+  document.getElementById('rbac-error').style.display='none';
+  rbacTarget=null;
+}
+function showModResultWrap(){
+  const w=document.getElementById('mod-result-wrap');
+  if(w){w.style.display='flex';}
+}
+
+</script>
+
+
+<!-- RBAC AUTH MODAL -->
+<div id="rbac-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:30px 32px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="font-size:22px;margin-bottom:8px;">🔐</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px;font-family:Arial,sans-serif;" id="rbac-title">Authentication Required</div>
+    <div style="font-size:12px;color:#6b7a96;margin-bottom:16px;font-family:Arial,sans-serif;">This action requires authorisation. Please enter your Shopee email to continue.</div>
+    <input id="rbac-email" type="email" placeholder="yourname@shopee.com"
+      style="width:100%;border:1.5px solid #c8d0e0;border-radius:8px;padding:10px 14px;font-size:13px;font-family:Arial,sans-serif;margin-bottom:8px;outline:none;"
+      onkeydown="if(event.key==='Enter')rbacSubmit()">
+    <div id="rbac-error" style="font-size:11px;color:#d42b2b;margin-bottom:10px;display:none;font-family:Arial,sans-serif;">❌ Not authorised. Contact Wen Han or Li Chen to request access.</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="rbacCancel()" style="background:#f0f3f8;color:#6b7a96;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:Arial,sans-serif;cursor:pointer;">Cancel</button>
+      <button onclick="rbacSubmit()" style="background:linear-gradient(135deg,#1a6fd4,#4a90e2);color:#fff;border:none;border-radius:7px;padding:9px 22px;font-size:12px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;">Confirm</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
