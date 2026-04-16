@@ -26,12 +26,14 @@ jobs:
       - name: Fetch GSheet data and build HTML
         env:
           # The Service Account JSON key — stored as a GitHub Secret
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_CREDENTIALS }}
           # The three GSheet IDs — stored as GitHub Secrets
           SHEET_ID_PHB:   ${{ secrets.SHEET_ID_PHB }}
           SHEET_ID_PHL:   ${{ secrets.SHEET_ID_PHL }}
           SHEET_ID_PHIXC: ${{ secrets.SHEET_ID_PHIXC }}
-        run: python scripts/fetch_and_build.py
+        run: |
+          echo "GOOGLE_SERVICE_ACCOUNT_JSON length: ${#GOOGLE_SERVICE_ACCOUNT_JSON}"
+          python scripts/fetch_and_build.py
 
       - name: Commit and push updated HTML
         run: |

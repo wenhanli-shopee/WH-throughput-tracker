@@ -8,7 +8,7 @@ fetch_and_build.py
 5. Writes docs/index.html
 
 Environment variables required (set as GitHub Secrets):
-  GOOGLE_SERVICE_ACCOUNT_JSON  – full JSON key content (as string)
+  GOOGLE_CREDENTIALS  – full JSON key content (as string)
   SHEET_ID_PHB                 – GSheet ID for PHB
   SHEET_ID_PHL                 – GSheet ID for PHL
   SHEET_ID_PHIXC               – GSheet ID for PHIXC
@@ -25,7 +25,7 @@ from google.oauth2.service_account import Credentials
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
 def get_gspread_client():
-    raw = os.environ['GOOGLE_SERVICE_ACCOUNT_JSON']
+    raw = os.environ['GOOGLE_CREDENTIALS']
     info = json.loads(raw)
     creds = Credentials.from_service_account_info(info, scopes=SCOPES)
     return gspread.authorize(creds)
