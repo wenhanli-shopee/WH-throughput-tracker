@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WH Capacity & Throughput Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -317,11 +318,7 @@ strong{font-weight:700;}
       <div class="l-card"><div class="l-card-icon">💡</div><div class="l-card-title">Insights & Actions</div><div class="l-card-sub">Root cause chains with specific, numeric next steps and quantified capacity recovery per month.</div></div>
     </div>
     <p style="color:rgba(255,255,255,.5);font-size:11px;margin-bottom:11px;font-family:var(--mono);letter-spacing:1px;">SELECT WAREHOUSE</p>
-    <div class="wh-grid" id="whGrid">
-      <button class="wh-btn sel" data-wh="PHB" onclick="selWH(this)">PHB</button>
-      <button class="wh-btn" data-wh="PHL" onclick="selWH(this)">PHL</button>
-      <button class="wh-btn" data-wh="PHIXC" onclick="selWH(this)">PHIXC</button>
-    </div>
+    <div class="wh-grid" id="whGrid"></div>
     <button class="go-btn" onclick="enterDash()">ENTER DASHBOARD →</button>
   </div>
 </div>
@@ -336,6 +333,10 @@ strong{font-weight:700;}
     </nav>
     <div id="wh-chips"></div>
     <span style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="tb-per">Jan–Mar 2026</span>
+    <button onclick="openSummaryModal()"
+      style="background:linear-gradient(135deg,#1a6fd4,#4a8de8);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(26,111,212,.3);">
+      📋 Generate Summary
+    </button>
   </div>
 
   <!-- STICKY SIM BAR -->
@@ -914,9 +915,9 @@ function enterDash(){
   document.getElementById('shell').style.display='block';
   window.scrollTo(0,0);
   // Clear any stale bm_overrides that may exist from old sessions
-  ['PHB','PHL','PHIXC'].forEach(w=>localStorage.removeItem('bm_overrides_'+w));
+  Object.keys(WH).forEach(w=>localStorage.removeItem('bm_overrides_'+w));
   refreshBM();
-  document.getElementById('tb-per').textContent='Jan–Mar 2026 · '+CUR;
+  document.getElementById('tb-per').textContent=getPeriodLabel()+' · '+CUR;
   buildWHChips();loadAll();showTab('fac',document.querySelector('.tb-tab'));
 }
 function buildWHChips(){
@@ -928,7 +929,7 @@ function qSwitch(code){
   saveContentEdits();
   CUR=code;
   refreshBM();// loads clean BM_DATA[CUR] — no localStorage contamination
-  document.getElementById('tb-per').textContent='Jan–Mar 2026 · '+code;
+  document.getElementById('tb-per').textContent=getPeriodLabel()+' · '+code;
   chartsBuilt=false;// reset so charts rebuild for new WH
   buildWHChips();destroyAll();loadAll();
 }
@@ -2507,6 +2508,420 @@ function buildFnContent(fn){
   cont.innerHTML=h;
 }
 
+
+// ══════════════════════════════════════════════════
+// DYNAMIC WH SETUP — works with any number of WHs
+// ══════════════════════════════════════════════════
+function buildLandingWHGrid(){
+  // Called on page load — builds WH buttons from WH data object
+  const grid = document.getElementById('whGrid');
+  if(!grid) return;
+  const whs = Object.keys(WH);
+  grid.innerHTML = whs.map((w,i) =>
+    `<button class="wh-btn${i===0?' sel':''}" data-wh="${w}" onclick="selWH(this)">${w}</button>`
+  ).join('');
+  // Set default CUR to first WH
+  CUR = whs[0];
+}
+
+// ══════════════════════════════════════════════════
+// DYNAMIC MONTHS — always use last 4 months of data
+// ══════════════════════════════════════════════════
+function getCurrentMonths(){
+  // Returns the WH's months array — always the latest available data
+  // When new months are added to WH data, this automatically picks them up
+  return WH[CUR].months;
+}
+
+function getPeriodLabel(){
+  const mo = getCurrentMonths();
+  if(!mo || mo.length===0) return '';
+  if(mo.length===1) return mo[0];
+  return mo[0] + ' – ' + mo[mo.length-1];
+}
+
+// ══════════════════════════════════════════════════
+// GENERATE SUMMARY MODAL
+// ══════════════════════════════════════════════════
+function openSummaryModal(){
+  const modal = document.getElementById('summary-modal');
+  const body  = document.getElementById('sum-body');
+  const title = document.getElementById('sum-title');
+  const sub   = document.getElementById('sum-subtitle');
+  if(!modal) return;
+
+  const d   = WH[CUR];
+  const mo  = d.months;
+  const ins = INSIGHTS_DATA[CUR] || {};
+  const period = getPeriodLabel();
+
+  title.textContent = `${CUR} Warehouse Summary`;
+  sub.textContent   = `${period} · Generated ${new Date().toLocaleDateString('en-SG',{year:'numeric',month:'short',day:'numeric'})}`;
+
+  // ── Helpers ──────────────────────────────────────────
+  const fmtK   = v => v>=1000?(v/1000).toFixed(1)+'K':Math.round(v)+'';
+  const fmtPct = v => (v*100).toFixed(1)+'%';
+  const secHd  = (emoji,txt,color) =>
+    `<div style="margin:20px 0 10px;padding-bottom:6px;border-bottom:2px solid ${color};display:flex;align-items:center;gap:8px;">
+       <span style="font-size:16px;">${emoji}</span>
+       <span style="font-size:14px;font-weight:700;color:${color};">${txt}</span>
+     </div>`;
+  const tag = (txt,c,bg) =>
+    `<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:${bg};color:${c};font-family:monospace;margin-right:5px;">${txt}</span>`;
+
+  let html = '';
+
+  // ── 1. Overview Metrics ───────────────────────────────────────────
+  html += secHd('📊','Overview Metrics','#1a6fd4');
+
+  // Month header row
+  html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+    <thead><tr style="background:#f0f3f8;">
+      <td style="padding:6px 10px;font-weight:700;color:#6b7a96;width:180px;">Metric</td>
+      ${mo.map(m=>`<td style="padding:6px 10px;font-weight:700;color:#1a6fd4;text-align:right;">${m}</td>`).join('')}
+    </tr></thead><tbody>`;
+
+  // Util rows
+  const utilRows = [
+    {label:'IB Avg Util %',   vals:d.ib.avgUtil,   fmt:v=>fmtPct(v/100), warn:90},
+    {label:'INV Avg CBM Util',vals:d.inv.avgUtil,  fmt:v=>fmtPct(v/100), warn:85},
+    {label:'OB Avg Util %',   vals:d.ob.avgUtil,   fmt:v=>fmtPct(v/100), warn:90},
+    {label:'IB Max ADO',      vals:d.ib.maxADO,    fmt:fmtK},
+    {label:'INV Max ADO',     vals:d.inv.maxADO,   fmt:fmtK},
+    {label:'OB Max ADO',      vals:d.ob.maxADO,    fmt:fmtK},
+  ];
+  utilRows.forEach(r=>{
+    html += `<tr style="border-bottom:1px solid #eee;">
+      <td style="padding:5px 10px;color:#374151;">${r.label}</td>
+      ${r.vals.map(v=>{
+        const disp = r.fmt ? r.fmt(v) : v;
+        const c = r.warn && (typeof v==='number') && (v>r.warn) ? '#d42b2b' : '#111928';
+        return `<td style="padding:5px 10px;text-align:right;font-family:monospace;font-weight:600;color:${c};">${disp}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+  // System BN row
+  html += `<tr style="border-bottom:1px solid #eee;background:#fdf0e6;">
+    <td style="padding:5px 10px;font-weight:700;color:#c75b00;">System BN Function</td>
+    ${mo.map((_,mi)=>{
+      const caps = [d.ib.maxADO[mi], d.inv.maxADO[mi], d.ob.maxADO[mi]];
+      const mn   = Math.min(...caps.filter(v=>v>0));
+      const fn   = mn===caps[0]?'IB':mn===caps[1]?'INV':'OB';
+      const c    = fn==='IB'?'#1a6fd4':fn==='INV'?'#c75b00':'#1a7a4a';
+      return `<td style="padding:5px 10px;text-align:right;font-weight:700;color:${c};">${fn}</td>`;
+    }).join('')}
+  </tr>`;
+  html += '</tbody></table>';
+
+  // ── 2. System Insights ────────────────────────────────────────────
+  if(ins.system && ins.system.length){
+    html += secHd('⚡','System Insights','#c75b00');
+    ins.system.forEach(i=>{
+      const bord = i.sev==='danger'?'#d42b2b':i.sev==='warn'?'#c47a00':'#1a7a4a';
+      html += `<div style="padding:8px 12px;border-left:3px solid ${bord};background:${i.sev==='danger'?'#fdeaea33':i.sev==='warn'?'#fff3e033':'#e6f5ed33'};border-radius:0 6px 6px 0;margin-bottom:8px;">
+        ${tag(i.cat,bord,bord+'22')}
+        <span style="font-size:11px;color:#374151;">${i.text}</span>
+      </div>`;
+    });
+  }
+
+  // ── 3. Function Insights ──────────────────────────────────────────
+  ['IB','INV','OB'].forEach(fn=>{
+    const fnIns = ins[fn];
+    if(!fnIns) return;
+    const fnC  = fn==='IB'?'#1a6fd4':fn==='INV'?'#c75b00':'#1a7a4a';
+    const fnLb = fn==='IB'?'📦 Inbound (IB)':fn==='INV'?'🏭 Inventory (INV)':'📤 Outbound (OB)';
+
+    if(fnIns.insights && fnIns.insights.length){
+      html += secHd(fn==='IB'?'📦':fn==='INV'?'🏭':'📤', `${fn} Insights`, fnC);
+      fnIns.insights.forEach(i=>{
+        const bord = i.sev==='danger'?'#d42b2b':i.sev==='warn'?'#c47a00':'#1a7a4a';
+        html += `<div style="padding:8px 12px;border-left:3px solid ${bord};background:${bord}11;border-radius:0 6px 6px 0;margin-bottom:8px;">
+          ${tag(i.cat,bord,bord+'22')}
+          <span style="font-size:11px;color:#374151;">${i.text}</span>
+        </div>`;
+      });
+    }
+  });
+
+  // ── 4. Questions for Local Teams ──────────────────────────────────
+  const allQs = [];
+  ['IB','INV','OB'].forEach(fn=>{
+    const qs = (ins[fn]||{}).questions||[];
+    qs.forEach(q=>allQs.push({...q,fn}));
+  });
+  if(allQs.length){
+    html += secHd('❓','Questions for Local Teams','#6b7a96');
+    allQs.sort((a,b)=>(a.pri||'P9').localeCompare(b.pri||'P9')||(a.num-b.num));
+    allQs.forEach(q=>{
+      const pc  = q.pri==='P1'?'#d42b2b':q.pri==='P2'?'#c47a00':'#1a7a4a';
+      const fnC = q.fn==='IB'?'#1a6fd4':q.fn==='INV'?'#c75b00':'#1a7a4a';
+      html += `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f0f3f8;">
+        <span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;background:${pc}22;color:${pc};font-family:monospace;min-width:24px;text-align:center;height:fit-content;margin-top:2px;">${q.pri||''}</span>
+        <span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;background:${fnC}22;color:${fnC};font-family:monospace;min-width:28px;text-align:center;height:fit-content;margin-top:2px;">${q.fn}</span>
+        <div style="flex:1;">
+          <div style="font-size:11px;color:#374151;">${q.q}</div>
+          <div style="font-size:10px;color:#6b7a96;margin-top:2px;">Purpose: ${q.purpose||''}</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // ── 5. Action Plan ────────────────────────────────────────────────
+  const allActs = [];
+  ['IB','INV','OB'].forEach(fn=>{
+    const acts = (ins[fn]||{}).actions||[];
+    acts.forEach(a=>allActs.push({...a,fn}));
+  });
+  if(allActs.length){
+    html += secHd('🎯','Action Plan','#1a7a4a');
+    allActs.sort((a,b)=>(a.pri||'P9').localeCompare(b.pri||'P9'));
+    allActs.forEach(a=>{
+      const pc = a.pri==='P1'?'#d42b2b':a.pri==='P2'?'#c47a00':'#1a7a4a';
+      html += `<div style="border:1px solid #dde3ef;border-left:3px solid ${pc};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">
+        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;">
+          <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${pc}22;color:${pc};font-family:monospace;">${a.pri||''}</span>
+          <span style="font-size:10px;color:#6b7a96;">${a.wh||''}</span>
+          <span style="font-size:12px;font-weight:700;color:#111928;">${a.action}</span>
+        </div>
+        <div style="font-size:10px;color:#6b7a96;margin-bottom:3px;">🔹 Condition: ${a.cond||''}</div>
+        <div style="font-size:10px;color:#1a7a4a;font-weight:600;">📈 Impact: ${a.impact||''}</div>
+        <div style="font-size:10px;color:#9aa5b8;margin-top:2px;">${a.status||''}</div>
+      </div>`;
+    });
+  }
+
+  body.innerHTML = html;
+  modal.style.display = 'flex';
+}
+
+function closeSummaryModal(){
+  document.getElementById('summary-modal').style.display = 'none';
+}
+
+// ── Build summary data for one WH (used by both preview and Excel export) ──
+function buildSummaryData(whKey){
+  const d   = WH[whKey];
+  const mo  = d.months;
+  const ins = INSIGHTS_DATA[whKey]||{};
+  const fmtK = v=>v!=null&&v>0?( v>=1000?(v/1000).toFixed(1)+'K':Math.round(v)+'' ):'—';
+  const fmtP = v=>v!=null?(v*100).toFixed(1)+'%':'—';
+  const rows = [];
+
+  // ── Section header helper ──
+  const sh = (title) => [{v:title,s:{font:{bold:true,sz:13,color:{rgb:'FFFFFF'}},
+    fill:{fgColor:{rgb:'1A3A72'}},alignment:{horizontal:'left'}}}];
+
+  // ── 1. Overview Metrics ──────────────────────────────────────────
+  rows.push(sh('📊 Overview Metrics'));
+  rows.push(['Metric',...mo].map((v,i)=>({
+    v, s:{font:{bold:true,sz:10,color:{rgb:i===0?'374151':'1A6FD4'}},
+    fill:{fgColor:{rgb:'F0F3F8'}},alignment:{horizontal:i===0?'left':'center'}}
+  })));
+
+  const utilMetrics = [
+    {label:'IB Avg Util %',      vals:d.ib.avgUtil,   fmt:v=>fmtP(v/100), warn:90},
+    {label:'INV Avg CBM Util %', vals:d.inv.avgUtil,  fmt:v=>fmtP(v/100), warn:85},
+    {label:'OB Avg Util %',      vals:d.ob.avgUtil,   fmt:v=>fmtP(v/100), warn:90},
+    {label:'IB Peak Util %',     vals:d.ib.peakUtil,  fmt:v=>fmtP(v/100), warn:100},
+    {label:'OB Peak Util %',     vals:d.ob.peakUtil,  fmt:v=>fmtP(v/100), warn:100},
+    {label:'IB Max ADO',         vals:d.ib.maxADO,    fmt:fmtK},
+    {label:'INV Max ADO',        vals:d.inv.maxADO,   fmt:fmtK},
+    {label:'OB Max ADO',         vals:d.ob.maxADO,    fmt:fmtK},
+  ];
+  utilMetrics.forEach(r=>{
+    rows.push([
+      {v:r.label, s:{font:{sz:10},alignment:{horizontal:'left'}}},
+      ...r.vals.map(v=>{
+        const disp = r.fmt?r.fmt(v):v;
+        const isWarn = r.warn && typeof v==='number' && v>r.warn;
+        return {v:disp, s:{font:{sz:10,color:{rgb:isWarn?'D42B2B':'111928'},bold:isWarn},
+          alignment:{horizontal:'right'}}};
+      })
+    ]);
+  });
+
+  // System BN row
+  rows.push([
+    {v:'System BN Function', s:{font:{bold:true,sz:10,color:{rgb:'C75B00'}},fill:{fgColor:{rgb:'FDF0E6'}},alignment:{horizontal:'left'}}},
+    ...mo.map((_,mi)=>{
+      const caps=[d.ib.maxADO[mi],d.inv.maxADO[mi],d.ob.maxADO[mi]];
+      const mn=Math.min(...caps.filter(v=>v>0));
+      const fn=mn===caps[0]?'IB':mn===caps[1]?'INV':'OB';
+      const rgb=fn==='IB'?'1A6FD4':fn==='INV'?'C75B00':'1A7A4A';
+      return {v:fn, s:{font:{bold:true,sz:10,color:{rgb}},fill:{fgColor:{rgb:'FDF0E6'}},alignment:{horizontal:'right'}}};
+    })
+  ]);
+  rows.push([{v:''}]); // spacer
+
+  // ── 2. System Insights ───────────────────────────────────────────
+  if(ins.system&&ins.system.length){
+    rows.push(sh('⚡ System Insights'));
+    ins.system.forEach(i=>{
+      rows.push([
+        {v:i.cat, s:{font:{bold:true,sz:9,color:{rgb:i.sev==='danger'?'D42B2B':i.sev==='warn'?'C47A00':'1A7A4A'}},
+          fill:{fgColor:{rgb:i.sev==='danger'?'FDEAEA':i.sev==='warn'?'FFF3E0':'E6F5ED'}}}},
+        {v:i.text, s:{font:{sz:10},alignment:{wrapText:true,horizontal:'left'}}}
+      ]);
+    });
+    rows.push([{v:''}]);
+  }
+
+  // ── 3. IB / INV / OB Insights ───────────────────────────────────
+  ['IB','INV','OB'].forEach(fn=>{
+    const fi=ins[fn]||{};
+    if(!(fi.insights&&fi.insights.length)) return;
+    const lbl=fn==='IB'?'📦 IB Insights':fn==='INV'?'🏭 INV Insights':'📤 OB Insights';
+    const rgb=fn==='IB'?'1A6FD4':fn==='INV'?'C75B00':'1A7A4A';
+    rows.push([{v:lbl, s:{font:{bold:true,sz:12,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb}}}}]);
+    fi.insights.forEach(i=>{
+      const sev=i.sev==='danger'?'D42B2B':i.sev==='warn'?'C47A00':'1A7A4A';
+      rows.push([
+        {v:i.cat, s:{font:{bold:true,sz:9,color:{rgb:sev}},fill:{fgColor:{rgb:sev+'22'.slice(0,2)==='22'?'FFF8F0':'F0F9F5'}}}},
+        {v:i.text, s:{font:{sz:10},alignment:{wrapText:true,horizontal:'left'}}}
+      ]);
+    });
+    rows.push([{v:''}]);
+  });
+
+  // ── 4. Questions for Local Teams ─────────────────────────────────
+  const allQs=[];
+  ['IB','INV','OB'].forEach(fn=>((ins[fn]||{}).questions||[]).forEach(q=>allQs.push({...q,fn})));
+  if(allQs.length){
+    rows.push(sh('❓ Questions for Local Teams'));
+    rows.push(['Priority','Function','Question','Purpose'].map(v=>({
+      v, s:{font:{bold:true,sz:10},fill:{fgColor:{rgb:'F0F3F8'}}}
+    })));
+    allQs.sort((a,b)=>(a.pri||'P9').localeCompare(b.pri||'P9'));
+    allQs.forEach(q=>{
+      const pc=q.pri==='P1'?'D42B2B':q.pri==='P2'?'C47A00':'1A7A4A';
+      const fc=q.fn==='IB'?'1A6FD4':q.fn==='INV'?'C75B00':'1A7A4A';
+      rows.push([
+        {v:q.pri||'', s:{font:{bold:true,sz:10,color:{rgb:pc}}}},
+        {v:q.fn,      s:{font:{bold:true,sz:10,color:{rgb:fc}}}},
+        {v:q.q,       s:{font:{sz:10},alignment:{wrapText:true,horizontal:'left'}}},
+        {v:q.purpose||'', s:{font:{sz:9,color:{rgb:'6B7A96'}},alignment:{wrapText:true}}},
+      ]);
+    });
+    rows.push([{v:''}]);
+  }
+
+  // ── 5. Action Plan ───────────────────────────────────────────────
+  const allActs=[];
+  ['IB','INV','OB'].forEach(fn=>((ins[fn]||{}).actions||[]).forEach(a=>allActs.push({...a,fn})));
+  if(allActs.length){
+    rows.push(sh('🎯 Action Plan'));
+    rows.push(['Priority','WH','Action','Condition','Expected Impact','Status'].map(v=>({
+      v, s:{font:{bold:true,sz:10},fill:{fgColor:{rgb:'F0F3F8'}}}
+    })));
+    allActs.sort((a,b)=>(a.pri||'P9').localeCompare(b.pri||'P9'));
+    allActs.forEach(a=>{
+      const pc=a.pri==='P1'?'D42B2B':a.pri==='P2'?'C47A00':'1A7A4A';
+      rows.push([
+        {v:a.pri||'',    s:{font:{bold:true,sz:10,color:{rgb:pc}}}},
+        {v:a.wh||'',     s:{font:{sz:10,color:{rgb:'6B7A96'}}}},
+        {v:a.action||'', s:{font:{bold:true,sz:10},alignment:{wrapText:true,horizontal:'left'}}},
+        {v:a.cond||'',   s:{font:{sz:9,color:{rgb:'6B7A96'}},alignment:{wrapText:true}}},
+        {v:a.impact||'', s:{font:{sz:10,color:{rgb:'1A7A4A'}},alignment:{wrapText:true}}},
+        {v:a.status||'', s:{font:{sz:9,color:{rgb:'9AA5B8'}}}},
+      ]);
+    });
+  }
+
+  return {rows, months:mo, whKey};
+}
+
+// ── Export one or many WHs to Excel — one sheet per WH ──────────────
+function exportSummaryExcel(whKeys){
+  if(!window.XLSX){
+    alert('SheetJS not loaded. Please check your internet connection.');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const period = getPeriodLabel();
+  const dateStr = new Date().toLocaleDateString('en-SG',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\//g,'-');
+
+  whKeys.forEach(whKey=>{
+    if(!WH[whKey]) return;
+    const {rows, months} = buildSummaryData(whKey);
+
+    // Convert rows to AOA (array-of-arrays) for SheetJS
+    // Extract plain values for the sheet data
+    const aoa = rows.map(row=> Array.isArray(row)?row.map(cell=>
+      typeof cell==='object'&&cell!==null&&'v' in cell ? cell.v : cell
+    ):row);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Set column widths
+    ws['!cols'] = [
+      {wch:22},  // col A: label / category
+      {wch:55},  // col B: main content / month 1
+      {wch:14},  // col C: month 2
+      {wch:14},  // col D: month 3
+      {wch:14},  // col E: month 4
+      {wch:28},  // col F: status / extra
+    ];
+
+    // Merge cells for section headers (full width)
+    const merges = [];
+    aoa.forEach((row, ri)=>{
+      if(row.length===1 && typeof row[0]==='string' && row[0].length>3){
+        merges.push({s:{r:ri,c:0}, e:{r:ri,c:5}});
+      }
+    });
+    ws['!merges'] = merges;
+
+    // Sheet name: WH key (max 31 chars for Excel)
+    const sheetName = whKey.substring(0,31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  // Add a cover sheet summarising all WHs
+  if(whKeys.length > 1){
+    const coverAoa = [
+      ['WH Capacity & Throughput Tracker — Summary Report'],
+      [`Period: ${period}`],
+      [`Generated: ${new Date().toLocaleString('en-SG')}`],
+      [''],
+      ['WH','Period','IB BN','OB BN','System BN'],
+    ];
+    whKeys.forEach(wk=>{
+      const d = WH[wk];
+      if(!d) return;
+      const mo = d.months;
+      const caps = mo.map((_,mi)=>{
+        const c=[d.ib.maxADO[mi],d.inv.maxADO[mi],d.ob.maxADO[mi]];
+        const mn=Math.min(...c.filter(v=>v>0));
+        return mn===c[0]?'IB':mn===c[1]?'INV':'OB';
+      });
+      coverAoa.push([wk, mo.join(', '), d.ibBN||'—', d.obBN||'—', caps.join(', ')]);
+    });
+    const coverWs = XLSX.utils.aoa_to_sheet(coverAoa);
+    coverWs['!cols']=[{wch:12},{wch:40},{wch:18},{wch:18},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, coverWs, 'Cover');
+    // Move cover to front
+    wb.SheetNames = ['Cover', ...wb.SheetNames.filter(n=>n!=='Cover')];
+  }
+
+  const filename = whKeys.length>1
+    ? `WH_Summary_All_${dateStr}.xlsx`
+    : `WH_Summary_${whKeys[0]}_${dateStr}.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+
+  // Update button feedback
+  const btnId = whKeys.length>1?'btn-export-all':'btn-export-one';
+  const btn = document.getElementById(btnId);
+  if(btn){
+    const orig = btn.textContent;
+    btn.textContent = '✅ Downloaded!';
+    setTimeout(()=>btn.textContent=orig, 2500);
+  }
+}
+
 // ══════════════════════════════════════════════════
 // INTRO TOGGLE
 // ══════════════════════════════════════════════════
@@ -2568,6 +2983,34 @@ function showModResultWrap(){
 </script>
 
 
+
+<!-- SUMMARY MODAL -->
+<div id="summary-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:820px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#0f1f48,#1a3a72);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:#fff;font-family:Arial,sans-serif;" id="sum-title">Warehouse Summary</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.6);font-family:Arial,sans-serif;margin-top:3px;" id="sum-subtitle"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button onclick="exportSummaryExcel(Object.keys(WH))" id="btn-export-all"
+          style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:6px 14px;font-size:11px;font-weight:600;font-family:Arial,sans-serif;cursor:pointer;white-space:nowrap;">
+          📥 All WHs (.xlsx)
+        </button>
+        <button onclick="exportSummaryExcel([CUR])" id="btn-export-one"
+          style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:6px 14px;font-size:11px;font-weight:600;font-family:Arial,sans-serif;cursor:pointer;white-space:nowrap;">
+          📄 This WH (.xlsx)
+        </button>
+        <button onclick="closeSummaryModal()"
+          style="background:rgba(255,255,255,.1);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;">✕</button>
+      </div>
+    </div>
+    <!-- Body -->
+    <div id="sum-body" style="padding:24px;font-family:Arial,sans-serif;font-size:12px;line-height:1.7;color:#111928;max-height:75vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <!-- RBAC AUTH MODAL -->
 <div id="rbac-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:14px;padding:30px 32px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);">
@@ -2584,5 +3027,10 @@ function showModResultWrap(){
     </div>
   </div>
 </div>
+<script>
+// Build landing page WH buttons dynamically from WH data object.
+// Adding a new WH = just add it to the WH and BM_DATA objects in the data section.
+buildLandingWHGrid();
+</script>
 </body>
 </html>
