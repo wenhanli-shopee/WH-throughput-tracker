@@ -11,8 +11,8 @@
 :root{
   --bg:#f7f8fc;--surface:#fff;--surface2:#f0f3f8;--surface3:#e6eaf2;
   --border:#dde3ef;--border2:#c8d0e0;
-  --ib:#1a6fd4;--ib-l:#e8f1fd;--inv:#c75b00;--inv-l:#fdf0e6;
-  --ob:#1a7a4a;--ob-l:#e6f5ed;
+  --ib:#2563b0;--ib-l:#dbeafe;--inv:#c75b00;--inv-l:#fdf0e6;
+  --ob:#6d4c9e;--ob-l:#f0eaff;
   --danger:#d42b2b;--warn:#c47a00;--ok:#1a7a4a;--muted:#6b7a96;
   --text:#111928;--text2:#374151;
   --mono:'JetBrains Mono',monospace;--sans:Arial,sans-serif;
@@ -308,18 +308,25 @@ strong{font-weight:700;}
 
 <!-- LANDING -->
 <div id="land">
-  <div class="l-inner">
-    <div class="l-badge">Shopee Philippines · Warehouse Operations</div>
-    <h1 class="l-title">WH Capacity &<br><span>Throughput Tracker</span></h1>
-    <p class="l-sub">A data-driven tool to identify what limits your warehouse throughput — from factor definitions and step-level simulation to monthly insights with quantified action plans.</p>
-    <div class="l-cards">
-      <div class="l-card"><div class="l-card-icon">📖</div><div class="l-card-title">Factor Guide & Simulation</div><div class="l-card-sub">Identify step bottlenecks in IB, INV, OB. Edit inputs and simulate capacity changes vs benchmark.</div></div>
-      <div class="l-card"><div class="l-card-icon">📊</div><div class="l-card-title">Capacity Analysis</div><div class="l-card-sub">Utilisation, max capacity, space efficiency — actual vs benchmark with factor deviation inline.</div></div>
-      <div class="l-card"><div class="l-card-icon">💡</div><div class="l-card-title">Insights & Actions</div><div class="l-card-sub">Root cause chains with specific, numeric next steps and quantified capacity recovery per month.</div></div>
+  <div style="min-height:100vh;background:linear-gradient(135deg,#0f1f48,#1a3a72,#0e2d5a);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;">
+    <div style="max-width:680px;width:100%;text-align:center;">
+      <div class="l-badge" style="margin-bottom:20px;">Shopee Philippines · Warehouse Operations</div>
+      <h1 class="l-title" style="margin-bottom:12px;">WH Capacity &amp;<br><span>Throughput Tracker</span></h1>
+      <p class="l-sub">A data-driven tool to identify what limits your warehouse throughput — from factor definitions and step-level simulation to monthly insights with quantified action plans.</p>
+
+      <!-- Overview button FIRST -->
+      <div style="margin-bottom:16px;">
+        <button class="go-btn" onclick="enterDashOv()"
+          style="background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);color:#fff;letter-spacing:1px;padding:11px 32px;font-size:12px;">
+          🌐 ALL WAREHOUSES OVERVIEW
+        </button>
+      </div>
+
+      <!-- WH selector -->
+      <p style="color:rgba(255,255,255,.5);font-size:11px;margin-bottom:11px;font-family:var(--mono);letter-spacing:1px;">— OR SELECT A WAREHOUSE —</p>
+      <div class="wh-grid" id="whGrid"></div>
+      <button class="go-btn" onclick="enterDash()">ENTER DASHBOARD →</button>
     </div>
-    <p style="color:rgba(255,255,255,.5);font-size:11px;margin-bottom:11px;font-family:var(--mono);letter-spacing:1px;">SELECT WAREHOUSE</p>
-    <div class="wh-grid" id="whGrid"></div>
-    <button class="go-btn" onclick="enterDash()">ENTER DASHBOARD →</button>
   </div>
 </div>
 
@@ -328,6 +335,7 @@ strong{font-weight:700;}
   <div class="topbar">
     <button class="tb-home" onclick="goHome()">← Home</button>
     <nav class="tb-nav">
+      <button class="tb-tab" onclick="showTab('ov',this)">🌐 All Warehouses</button>
       <button class="tb-tab act" onclick="showTab('fac',this)">📖 Factor Guide & Simulation</button>
       <button class="tb-tab" onclick="showTab('ana',this)">📊 Capacity Analysis & Insights</button>
     </nav>
@@ -337,6 +345,29 @@ strong{font-weight:700;}
       style="background:linear-gradient(135deg,#1a6fd4,#4a8de8);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(26,111,212,.3);">
       📋 Generate Summary
     </button>
+  </div>
+
+  <!-- TAB: ALL WAREHOUSES OVERVIEW -->
+  <div id="tab-ov" class="mc" style="display:none;">
+    <div style="margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">🌐 All Warehouses — Overview</div>
+      <div style="font-size:11px;color:var(--muted);">Aggregated view across all warehouses. Select a warehouse and click <strong>Enter Dashboard</strong> to drill down.</div>
+    </div>
+    <!-- Overview table (same as landing) -->
+    <div id="shell-overview" class="card mb16" style="overflow-x:auto;">
+      <div style="padding:20px;text-align:center;color:var(--muted);">Loading…</div>
+    </div>
+    <!-- Per-WH critical findings -->
+    <div id="shell-insights" style="display:grid;gap:10px;"></div>
+    <!-- WH selector + enter button -->
+    <div style="margin-top:20px;padding:16px 18px;background:var(--surface2);border-radius:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <span style="font-size:12px;font-weight:600;color:var(--text);">Select warehouse to drill down:</span>
+      <div id="ov-wh-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      <button onclick="enterDash()"
+        style="background:linear-gradient(135deg,var(--ib),#4a8de8);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:700;font-family:Arial,sans-serif;cursor:pointer;margin-left:auto;">
+        Enter Dashboard →
+      </button>
+    </div>
   </div>
 
   <!-- STICKY SIM BAR -->
@@ -380,7 +411,7 @@ strong{font-weight:700;}
     <div style="position:sticky;top:100px;z-index:150;background:var(--bg);padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:14px;">
       <div class="sp-tabs" style="margin-bottom:0;">
         <button class="sp-tab a-ib" id="sp-IB" onclick="showSP('IB',this)">📦 Inbound (IB)</button>
-        <button class="sp-tab" id="sp-INV" onclick="showSP('INV',this)">🏭 Inventory (INV)</button>
+        <button class="sp-tab" id="sp-INV" onclick="showSP('INV',this)">🏭 Inventory</button>
         <button class="sp-tab" id="sp-OB" onclick="showSP('OB',this)">📤 Outbound (OB)</button>
       </div>
     </div>
@@ -406,12 +437,12 @@ strong{font-weight:700;}
 
     <!-- ══ OVERVIEW PANEL ══════════════════════════════════════ -->
     <div id="ana-ov">
+      <!-- System insights box — shown FIRST before metrics -->
+      <div id="sysInsBox" class="card mb16"></div>
       <!-- Overview table -->
       <div class="card mb16">
         <div class="scrollx"><table id="ovTbl" style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px;"></table></div>
       </div>
-      <!-- System insights box -->
-      <div id="sysInsBox" class="card mb16"></div>
     </div>
 
     <!-- ══ FUNCTION VIEW PANEL ════════════════════════════════ -->
@@ -426,7 +457,7 @@ strong{font-weight:700;}
       <!-- INV accordion -->
       <div class="fn-block" id="fnb-INV">
         <button class="fn-toggle inv-toggle" onclick="toggleFnBlock('INV',this)">
-          🏭 Inventory (INV) <span class="fn-toggle-arrow">›</span>
+          🏭 Inventory <span class="fn-toggle-arrow">›</span>
         </button>
         <div class="fn-content" id="fnc-INV" style="display:none;"></div>
       </div>
@@ -910,6 +941,19 @@ function mParams(){const p={};Object.keys(BM).filter(k=>typeof BM[k]==='number')
 // ══════════════════════════════════════════════════
 function selWH(el){document.querySelectorAll('.wh-btn').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');CUR=el.dataset.wh;}
 function goHome(){document.getElementById('shell').style.display='none';document.getElementById('land').style.display='flex';}
+function enterDashOv(){
+  // Enter dashboard directly on the All Warehouses tab
+  document.getElementById('land').style.display='none';
+  document.getElementById('shell').style.display='block';
+  window.scrollTo(0,0);
+  Object.keys(WH).forEach(w=>localStorage.removeItem('bm_overrides_'+w));
+  refreshBM();
+  document.getElementById('tb-per').textContent=getPeriodLabel()+' · '+CUR;
+  buildWHChips();loadAll();
+  // Activate the overview tab
+  const ovBtn=document.querySelector('.tb-nav .tb-tab');// first tab = All Warehouses
+  showTab('ov',ovBtn);
+}
 function enterDash(){
   document.getElementById('land').style.display='none';
   document.getElementById('shell').style.display='block';
@@ -934,13 +978,15 @@ function qSwitch(code){
   buildWHChips();destroyAll();loadAll();
 }
 function showTab(name,btn){
-  ['fac','ana','ins'].forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.style.display=t===name?'block':'none';});
+  ['ov','fac','ana','ins'].forEach(t=>{const el=document.getElementById('tab-'+t);if(el)el.style.display=t===name?'block':'none';});
   document.querySelectorAll('.tb-tab').forEach(b=>b.classList.remove('act'));
   if(btn)btn.classList.add('act');
   document.getElementById('sim-bar').style.display=name==='fac'?'flex':'none';
   if(name==='ana'){
-    // Ensure overview is shown by default
     anaSubTab('ov');
+  }
+  if(name==='ov'){
+    buildShellOverview();
   }
 }
 function showSP(fn,btn){
@@ -1523,16 +1569,41 @@ function buildCapTbl(){
   h+=row('OB','OB Peak Util %',85,d.ob.peakUtil,false,v=>v+'%',true);
 
   // ─── Max Capacity ──────────────────────────────────────────
-  h+=subH('Max Capacity — Vary based on Ops performance');
-  h+=row('IB','IB (qty) — Max ADO',d.theo.ibADO,d.ib.maxADO,true,v=>Math.round(v).toLocaleString());
-  h+=`<tr><td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);">${fnT('INV')}</td><td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">Inv (CBM)</td>${benchC(Math.round(14264*.38),v=>v.toLocaleString())}${d.inv.maxCBM.map(v=>`<td class="nc" style="border-bottom:1px solid var(--border);"><div style="font-weight:600;">${Math.round(v).toLocaleString()}</div></td>`).join('')}${mtdC()}</tr>`;
-  h+=row('OB','PO OB — Max ADO',d.theo.obADO,d.ob.maxADO,true,v=>Math.round(v).toLocaleString());
-  h+=`<tr><td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);">${fnT('OB')}</td><td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">MTO OB (equiv ADO)</td>${benchC(94345,v=>Math.round(v).toLocaleString())}${d.mto.maxADO.map(v=>`<td class="nc" style="border-bottom:1px solid var(--border);"><div style="font-weight:600;">${Math.round(v).toLocaleString()}</div></td>`).join('')}${mtdC()}</tr>`;
-
-  h+=subH('Fixed Benchmark Reference');
-  [['IB','IB (qty) ADO',d.theo.ibADO],['INV','Inv (CBM)',Math.round(14264*.38)],['OB','PO OB ADO',d.theo.obADO]].forEach(([fn,lbl,val])=>{
-    h+=`<tr><td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);">${fnT(fn)}</td><td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">${lbl}</td>${benchC(val,v=>typeof v==='number'?Math.round(v).toLocaleString():v)}${mo.map(()=>`<td class="nc" style="border-bottom:1px solid var(--border);color:var(--muted);">${typeof val==='number'?Math.round(val).toLocaleString():val}</td>`).join('')}${mtdC()}</tr>`;
-  });
+  // Unit badges for capacity rows
+  const unitBadge=(unit,c)=>`<span style="font-size:9px;font-weight:700;font-family:var(--mono);padding:1px 5px;border-radius:3px;background:${c}22;color:${c};margin-left:5px;">${unit}</span>`;
+  h+=subH('Max Capacity — from Monthly Tracker <span style="font-size:10px;font-weight:400;color:var(--muted);">IB Max ADO (qty) · Inventory Max CBM · PO OB Max ADO · MTO Max ADO (equiv.)</span>');
+  // IB (qty) — unit: ADO
+  h+=`<tr class="${''}">
+    <td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);vertical-align:middle;">${fnT('IB')}</td>
+    <td style="border-bottom:1px solid var(--border);padding:4px 9px;font-size:11px;">IB Max ADO ${unitBadge('qty','var(--ib)')}</td>
+    ${benchC(d.theo.ibADO,v=>Math.round(v).toLocaleString())}
+    ${d.ib.maxADO.map(v=>numC(v,d.theo.ibADO,true,v=>Math.round(v).toLocaleString())).join('')}
+    ${mtdC()}
+  </tr>`;
+  // Inventory (CBM) — unit: CBM
+  h+=`<tr>
+    <td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);vertical-align:middle;">${fnT('INV')}</td>
+    <td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">Inventory Max CBM ${unitBadge('CBM','var(--inv)')}</td>
+    ${benchC(Math.round(BM.sqm*(BM.cbm_sqm||0.38)),v=>v.toLocaleString())}
+    ${d.inv.maxCBM.map(v=>`<td style="${CELL_H}"><div style="${LINE1}font-weight:600;">${Math.round(v).toLocaleString()}</div><div style="${LINE2}opacity:0;">—</div><div style="${LINE3}opacity:0;">—</div></td>`).join('')}
+    ${mtdC()}
+  </tr>`;
+  // PO OB (ADO)
+  h+=`<tr>
+    <td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);vertical-align:middle;">${fnT('OB')}</td>
+    <td style="border-bottom:1px solid var(--border);padding:4px 9px;font-size:11px;">PO OB Max ADO ${unitBadge('ADO','var(--ob)')}</td>
+    ${benchC(d.theo.obADO,v=>Math.round(v).toLocaleString())}
+    ${d.ob.maxADO.map(v=>numC(v,d.theo.obADO,true,v=>Math.round(v).toLocaleString())).join('')}
+    ${mtdC()}
+  </tr>`;
+  // MTO (equivalent ADO)
+  h+=`<tr>
+    <td style="padding:4px 9px 4px 14px;border-bottom:1px solid var(--border);vertical-align:middle;">${fnT('OB')}</td>
+    <td style="padding:4px 9px;font-size:11px;border-bottom:1px solid var(--border);">MTO Max ADO ${unitBadge('equiv.','var(--ob)')}</td>
+    ${benchC(d.mto.maxADO[0]>0?d.mto.maxADO[0]:94345,v=>Math.round(v).toLocaleString())}
+    ${d.mto.maxADO.map(v=>`<td style="${CELL_H}"><div style="${LINE1}font-weight:600;">${Math.round(v).toLocaleString()}</div><div style="${LINE2}opacity:0;">—</div><div style="${LINE3}opacity:0;">—</div></td>`).join('')}
+    ${mtdC()}
+  </tr>`;
 
   // ─── Space Efficiency ─────────────────────────────────────
   if(d.spaceEff){
@@ -1971,7 +2042,7 @@ function toggleMonth(hdr){
 const INSIGHTS_DATA={
   PHB:{
     system:[
-      {cat:'Bottleneck',sev:'danger',text:'INV Storage is the system bottleneck in Jan, Feb, Apr. OB Packing is the system BN in Mar. IB Receiving is consistently the IB step BN.'},
+      {cat:'Bottleneck',sev:'danger',text:'Inventory Storage is the system bottleneck in Jan, Feb, Apr. OB Packing is the system BN in Mar. IB Receiving is consistently the IB step BN.'},
     ],
     IB:{
       insights:[
@@ -1991,8 +2062,8 @@ const INSIGHTS_DATA={
     INV:{
       insights:[
         {cat:'Critical Finding',sev:'danger',text:'Peak location util hitting 93–94% while avg CBM/SQM (0.318–0.326) is below the 0.380 model in Jan/Apr — WH is running out of locations before filling volumetric space. It might be a signal of bin/shelf size mismatch, and need to analyse bin selection based on historical and projected SKU profile.'},
-        {cat:'Operational Impact',sev:'warn',text:'High INV location util causes putaway wait to rise (2.85hr Jan → 3.83hr Feb, +34%). This creates a secondary drag on IB putaway capacity.'},
-        {cat:'DOC',sev:'warn',text:'DOC elevated at 25.7–30.2 days vs 23-day benchmark. Feb–Mar DOC spike (30.2d) drove avg CBM util surge and kept location util elevated. Could check with INV team whether could shorten the DOC or better schedule seller shipment.'},
+        {cat:'Operational Impact',sev:'warn',text:'High Inventory location util causes putaway wait to rise (2.85hr Jan → 3.83hr Feb, +34%). This creates a secondary drag on IB putaway capacity.'},
+        {cat:'DOC',sev:'warn',text:'DOC elevated at 25.7–30.2 days vs 23-day benchmark. Feb–Mar DOC spike (30.2d) drove avg CBM util surge and kept location util elevated. Could check with Inventory team whether could shorten the DOC or better schedule seller shipment.'},
       ],
       questions:[
         {num:3,q:'What drove DOC to 30.2 days in Feb–Mar? Is it a recurring seasonal pattern?',purpose:'INV capacity planning',pri:'P2'},
@@ -2006,7 +2077,7 @@ const INSIGHTS_DATA={
     OB:{
       insights:[
         {cat:'Capacity',sev:'warn',text:'MTO handover improved from 38hr to 27hr — positive for staging. If the positive signal keeps remaining, could reduce MTO staging space.'},
-        {cat:'Space Signal',sev:'ok',text:'OB Packing is the binding step every month. OB staging has 31–39% excess headroom. Need to check the util at mega campaigns like 11.11, 12.12, and if util is still quite low, might be able to relocate some OB space to INV.'},
+        {cat:'Space Signal',sev:'ok',text:'OB Packing is the binding step every month. OB staging has 31–39% excess headroom. Need to check the util at mega campaigns like 11.11, 12.12, and if util is still quite low, might be able to relocate some OB space to Inventory.'},
       ],
       questions:[
         {num:5,q:'Is the MTO handover improvement (38hr→27–30hr) sustained? What drove it?',purpose:'OB staging space decision',pri:'P2'},
@@ -2024,7 +2095,7 @@ const INSIGHTS_DATA={
     IB:{
       insights:[
         {cat:'Space Signal',sev:'warn',text:'IB max ADO (142K–334K) is 3–7× OB ceiling (46K–54K). IB space is heavily over-allocated. IB SQM (1,952) should be partially transferred to OB where the system bottleneck sits.'},
-        {cat:'Productivity',sev:'warn',text:'PO productivity crashed to 253 items/hr in Mar (benchmark 780). Feb putaway wait spiked to 22.5hr, coinciding with 91% INV CBM util — INV fullness causing IB putaway congestion.'},
+        {cat:'Productivity',sev:'warn',text:'PO productivity crashed to 253 items/hr in Mar (benchmark 780). Feb putaway wait spiked to 22.5hr, coinciding with 91% Inventory CBM util — Inventory fullness causing IB putaway congestion.'},
       ],
       questions:[
         {num:7,q:'What caused PO productivity to crash to 253 items/hr in Mar? Was Jan IB max ADO (334K) a special setup?',purpose:'IB capacity diagnosis',pri:'P2'},
@@ -2035,8 +2106,8 @@ const INSIGHTS_DATA={
     },
     INV:{
       insights:[
-        {cat:'Warning',sev:'warn',text:'Peak CBM/Loc util hit 91–92% in Feb–Mar. While not the system BN, INV fullness directly caused the Feb 22.5hr putaway wait spike that made putaway the IB bottleneck. INV above 90% util creates an IB drag.'},
-        {cat:'Data Anomaly',sev:'warn',text:'Apr INV avg CBM util (97.9%) exceeds peak util (78.7%). Needs verification with local team.'},
+        {cat:'Warning',sev:'warn',text:'Peak CBM/Loc util hit 91–92% in Feb–Mar. While not the system BN, Inventory fullness directly caused the Feb 22.5hr putaway wait spike that made putaway the IB bottleneck. Inventory above 90% util creates an IB drag.'},
+        {cat:'Data Anomaly',sev:'warn',text:'Apr Inventory avg CBM util (97.9%) exceeds peak util (78.7%). Needs verification with local team.'},
       ],
       questions:[
         {num:8,q:'What caused Feb putaway wait to spike to 22.5hr? (Likely linked to 91% INV CBM util — confirm with ground team.)',purpose:'INV→IB linkage',pri:'P1'},
@@ -2079,7 +2150,7 @@ const INSIGHTS_DATA={
     },
     INV:{
       insights:[
-        {cat:'CRITICAL RISK',sev:'danger',text:'Peak CBM util rising rapidly: 77.9% → 90.3% → 92.8% → 94.7% in 4 months. Avg CBM/SQM nearly doubled (0.41→0.90). At this trajectory, INV becomes a binding co-bottleneck within 2–3 months.'},
+        {cat:'CRITICAL RISK',sev:'danger',text:'Peak CBM util rising rapidly: 77.9% → 90.3% → 92.8% → 94.7% in 4 months. Avg CBM/SQM nearly doubled (0.41→0.90). At this trajectory, Inventory becomes a binding co-bottleneck within 2–3 months.'},
         {cat:'DOC Crisis',sev:'danger',text:'DOC is 135–240 days — far beyond any benchmark. Even as DOC declined (240→135d), total inventory CBM kept rising, meaning new stock arrives faster than old stock clears. Requires immediate investigation.'},
         {cat:'Operational Impact',sev:'warn',text:'Peak loc util above 90% is already causing putaway wait to rise (2hr→5.4hr Jan→Mar). If CBM util hits 95%+, putaway operations will become severely congested.'},
       ],
@@ -2203,9 +2274,16 @@ function buildOverviewTable(){
 
   // ── Utilisation Avg
   h+=secRow('📊 UTILISATION — AVG ADO UTIL &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Monthly average utilisation vs max capacity</span>');
-  h+=dataRow('IB Avg Util','%',d.ib.avgUtil,v=>pf(v/100),v=>vc(v,90,80));
-  h+=dataRow('INV Avg CBM Util','%',d.inv.avgUtil,v=>pf(v/100),v=>vc(v,90,82));
-  h+=dataRow('OB Avg Util','%',d.ob.avgUtil,v=>pf(v/100),v=>vc(v,90,80));
+  // Compute bottleneck function per month to colour row headers
+  function getBNTag(fn){
+    const anyBN=mo.some((_,mi)=>sysUtilBN(mi)===fn);
+    if(!anyBN) return '';
+    return ` <span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:#fde8e8;color:#b91c1c;margin-left:4px;">▲ Bottleneck</span>`;
+  }
+  const fnLabel=(fn,full)=>`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:${bnBg(fn)}22;color:${bnBg(fn)};margin-right:4px;">${fn}</span>${full}${getBNTag(fn)}`;
+  h+=dataRow(fnLabel('IB','Inbound Avg Util'),'%',d.ib.avgUtil,v=>pf(v/100),v=>vc(v,90,80));
+  h+=dataRow(fnLabel('INV','Inventory Avg CBM Util'),'%',d.inv.avgUtil,v=>pf(v/100),v=>vc(v,90,82));
+  h+=dataRow(fnLabel('OB','Outbound Avg Util'),'%',d.ob.avgUtil,v=>pf(v/100),v=>vc(v,90,80));
 
   // ── Utilisation Peak
   h+=secRow('📊 UTILISATION — PEAK ADO UTIL &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Monthly peak day utilisation</span>');
@@ -2224,24 +2302,13 @@ function buildOverviewTable(){
   h+=`<tr class="ov-row"><td class="ov-metric">OB Design ADO</td><td class="ov-sub">K (fixed benchmark)</td>${mo.map(()=>`<td class="ov-val" style="color:var(--muted);font-size:11px;">${fmtK(designOB)}</td>`).join('')}</tr>`;
 
   // ── System Bottleneck
-  h+=secRow('🔴 SYSTEM BOTTLENECK &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Which function caps total WH throughput</span>');
-  // Util BN (highest util)
-  h+=`<tr class="ov-row"><td class="ov-metric">System Util BN Function</td><td class="ov-sub">Highest avg util</td>${mo.map((_,mi)=>{
+  h+=secRow('🔴 SYSTEM UTILISATION BOTTLENECK &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">The function with the highest utilisation is considered the bottleneck, which may suggest a potential need for additional space, subject to validation.</span>');
+  h+=`<tr class="ov-row"><td class="ov-metric" colspan="2" style="font-size:10px;color:var(--muted);font-style:italic;padding:4px 10px;">System Utilisation Bottleneck Function — highest average utilisation each month</td>${mo.map(()=>'').join('')}</tr>`;
+  h+=`<tr class="ov-row"><td class="ov-metric">Utilisation Bottleneck Function</td><td class="ov-sub">Highest avg util</td>${mo.map((_,mi)=>{
     const fn=sysUtilBN(mi);
-    return `<td style="text-align:right;"><span class="ov-bn-chip" style="background:${bnBg(fn)}22;color:${bnBg(fn)};border:1px solid ${bnBg(fn)};">${fn}</span></td>`;
+    const fnFull=fn==='IB'?'Inbound':fn==='INV'?'Inventory':'Outbound';
+    return `<td style="text-align:right;"><span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;background:#fde8e8;color:#b91c1c;border:1px solid #f87171;">▲ ${fnFull}<br><span style="font-size:8px;font-weight:600;opacity:.85;">System Bottleneck</span></span></td>`;
   }).join('')}</tr>`;
-  // Abs cap BN
-  h+=`<tr class="ov-row"><td class="ov-metric">System Absolute Cap BN</td><td class="ov-sub">Lowest max ADO function</td>${mo.map((_,mi)=>{
-    // compute which is min
-    const caps=[d.ib.maxADO[mi],d.inv.maxADO[mi],d.ob.maxADO[mi]];
-    const mn=Math.min(...caps);
-    const fn=mn===caps[0]?'IB':mn===caps[1]?'INV':'OB';
-    return `<td style="text-align:right;"><span class="ov-bn-chip" style="background:${bnBg(fn)}22;color:${bnBg(fn)};border:1px solid ${bnBg(fn)};">${fn}</span></td>`;
-  }).join('')}</tr>`;
-  // BN step
-  const bnSteps={PHB:['—','—','Packing','—'],PHL:['Sorting','Sorting','OB Staging','OB Staging'],PHIXC:['Sorting','Sorting','Packing','Packing']};
-  const bns=bnSteps[CUR]||mo.map(()=>'—');
-  h+=`<tr class="ov-row"><td class="ov-metric">System BN Step</td><td class="ov-sub"></td>${bns.map(s=>`<td class="ov-val" style="color:var(--muted);font-size:11px;">${s}</td>`).join('')}</tr>`;
 
   h+='</tbody>';
   tbl.innerHTML=h;
@@ -2293,9 +2360,24 @@ function buildFnContent(fn){
 
   let h='';
 
-  // ─── SECTION 1: Capacity & Factors ────────────────────────────────
+  // ─── SECTION 1: Insights Summary (MOVED FIRST) ───────────────────
+  if(ins.insights&&ins.insights.length){
+    h+=`<div class="fv-section">`;
+    h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">1</span> Insights Summary</div>`;
+    h+=ins.insights.map(i=>{
+      const bord=sevC[i.sev]||'var(--muted)';
+      const bg=sevBg[i.sev]||'var(--surface2)';
+      return `<div class="ins-card ${i.sev}" style="border-left-color:${bord};">
+        <div class="ins-card-cat" style="background:${bg};color:${bord};">${i.cat}</div>
+        <div class="ins-card-txt">${i.text}</div>
+      </div>`;
+    }).join('');
+    h+='</div>';
+  }
+
+  // ─── SECTION 2: Capacity & Factors ────────────────────────────────
   h+=`<div class="fv-section">`;
-  h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">1</span> Capacity &amp; Factor Analysis</div>`;
+  h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">2</span> Capacity &amp; Factor Analysis <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:8px;">— Δ capacity = sum of each factor's % impact on capacity. Uplift ratio shown where available.</span></div>`;
 
   const moHds=mo.map(m=>`<th style="min-width:100px;color:${fnC};">${m}<br><span style="font-weight:400;font-size:8px;">val / Δ vs BM</span></th>`).join('');
   h+=`<div class="scrollx"><table class="cap-tbl" style="min-width:600px;">
@@ -2370,7 +2452,7 @@ function buildFnContent(fn){
     // IB function-level row
     const bmIB=BM.bm_ib;
     h+=`<tr style="background:${fnC}18;border-left:3px solid ${fnC};">
-      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">📦 IB Overall Max ADO</td>
+      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">📦 IB Max ADO <span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;background:${fnC}22;margin-left:4px;">qty</span></td>
       <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);">${fmtK(bmIB)}</td>
       ${mo.map((_,mi)=>capCell(d.ib.maxADO[mi],bmIB)).join('')}
     </tr>`;
@@ -2381,6 +2463,7 @@ function buildFnContent(fn){
     h += facRow('Pending Recv Wait (hr)', BM.s1_wait,   'ib_wait_recv', true);
     h += facRow('Items / Pallet (recv)',  BM.s1_items,  'ib_items_recv', false);
     h += facRow('IOR',                    BM.ib_ior,    'inv_ior',       true);
+    h += facRow('IB Uplift Ratio',        null,         'ib_uplift',     false);
 
     // ── Receiving: capacity row then factors ──
     const ibRecvBN = d.ibBN==='Receiving';
@@ -2398,11 +2481,12 @@ function buildFnContent(fn){
     h += facRow('Items / Pallet (put)',    BM.s3_items,  'ib_items_put', false);
 
   } else if(fn==='INV'){
+    const bmINVcbm=Math.round(BM.sqm*(BM.cbm_sqm||0.38));
     const bmINV=d.theo.invADO;
     h+=`<tr style="background:${fnC}18;border-left:3px solid ${fnC};">
-      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">🏭 INV Overall Max ADO</td>
-      <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);">${bmINV?fmtK(bmINV):'—'}</td>
-      ${mo.map((_,mi)=>capCell(d.inv.maxADO[mi],bmINV)).join('')}
+      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">🏭 Inventory Max CBM <span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;background:${fnC}22;margin-left:4px;">CBM</span></td>
+      <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);">${fmtK(bmINVcbm)}</td>
+      ${mo.map((_,mi)=>{const v=d.inv.maxCBM&&d.inv.maxCBM[mi]?d.inv.maxCBM[mi]:null;return capCell(v,bmINVcbm);}).join('')}
     </tr>`;
     // Peak utilisation rows (no step breakdowns for INV)
     h+=`<tr class="cap-step-row"><td colspan="2" style="padding:5px 9px 5px 12px;font-size:11px;color:${fnC};font-weight:600;">Peak CBM Util</td>
@@ -2423,9 +2507,15 @@ function buildFnContent(fn){
   } else { // OB
     const bmOB=BM.bm_ob;
     h+=`<tr style="background:${fnC}18;border-left:3px solid ${fnC};">
-      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">📤 OB Overall Max ADO</td>
+      <td colspan="2" style="padding:7px 9px;font-weight:700;font-size:13px;color:${fnC};">📤 PO OB Max ADO <span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;background:${fnC}22;margin-left:4px;">ADO</span></td>
       <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted);">${fmtK(bmOB)}</td>
       ${mo.map((_,mi)=>capCell(d.ob.maxADO[mi],bmOB)).join('')}
+    </tr>`;
+    // MTO row
+    h+=`<tr style="background:${fnC}10;border-left:3px solid ${fnC}88;">
+      <td colspan="2" style="padding:5px 9px;font-weight:700;font-size:12px;color:${fnC};">📦 MTO Max ADO <span style="font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;background:${fnC}22;margin-left:4px;">equiv.</span></td>
+      <td style="text-align:right;padding:5px 9px;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--muted);">${d.mto&&d.mto.maxADO&&d.mto.maxADO[0]>0?fmtK(d.mto.maxADO[0]):'—'}</td>
+      ${mo.map((_,mi)=>capCell(d.mto&&d.mto.maxADO?d.mto.maxADO[mi]:null,null)).join('')}
     </tr>`;
 
     const obBNstep = d.obBN||'';
@@ -2434,6 +2524,7 @@ function buildFnContent(fn){
     h += facRow('Sort Prod (items/hr)', BM.sort_prod, 'ob_sort',     false);
     h += facRow('Sort Items %',         BM.sort_pct,  'ob_sort_pct', true);
     h += facRow('OB IOR',               BM.ob_ior,    'inv_ior',     true);
+    h += facRow('OB Uplift Ratio',      null,         'ob_uplift',   false);
 
     // ── Packing ──
     h += stepCapRow('Packing', BM.bm_ob_packing, obStepActuals(1), obBNstep==='Packing');
@@ -2449,21 +2540,6 @@ function buildFnContent(fn){
   }
 
   h+='</tbody></table></div></div>';
-
-  // ─── SECTION 2: Insights ──────────────────────────────────────────
-  if(ins.insights&&ins.insights.length){
-    h+=`<div class="fv-section">`;
-    h+=`<div class="fv-sec-title"><span class="fv-sec-num" style="background:${fnC};">2</span> Insights Summary</div>`;
-    h+=ins.insights.map(i=>{
-      const bord=sevC[i.sev]||'var(--muted)';
-      const bg=sevBg[i.sev]||'var(--surface2)';
-      return `<div class="ins-card ${i.sev}" style="border-left-color:${bord};">
-        <div class="ins-card-cat" style="background:${bg};color:${bord};">${i.cat}</div>
-        <div class="ins-card-txt">${i.text}</div>
-      </div>`;
-    }).join('');
-    h+='</div>';
-  }
 
   // ─── SECTION 3: Questions ─────────────────────────────────────────
   if(ins.questions&&ins.questions.length){
@@ -2509,19 +2585,304 @@ function buildFnContent(fn){
 }
 
 
+
+// ══════════════════════════════════════════════════
+// LANDING OVERVIEW TABLE — all WHs at a glance
+// ══════════════════════════════════════════════════
+function buildLandingOverview(){
+  const div = document.getElementById('land-overview');
+  const insDiv = document.getElementById('land-insights');
+  if(!div) return;
+
+  const whs = Object.keys(WH);
+  if(!whs.length){ div.innerHTML='<div style="padding:20px;color:rgba(255,255,255,.4);">No warehouse data available.</div>'; return; }
+
+  const fmtK = v => v>0 ? (v>=1000?(v/1000).toFixed(1)+'K':Math.round(v)+'') : '—';
+  const fmtP = v => v>0 ? (v*100).toFixed(1)+'%' : '—';
+  const fnC  = fn => fn==='IB'?'#60a5fa':fn==='INV'?'#fb923c':'#7dd3fc';
+  const bnBg = fn => fn==='IB'?'#60a5fa':fn==='INV'?'#fb923c':'#7dd3fc';
+
+  // Get the most recent month index (last month in months array)
+  const recentIdx = (wh) => { const mo=WH[wh].months; return mo.length-1; };
+
+  // Util-based system BN (highest avg util)
+  function landSysUtilBN(wh, mi){
+    const d=WH[wh];
+    const ibU=d.ib.avgUtil[mi]||0, invU=d.inv.avgUtil[mi]||0, obU=d.ob.avgUtil[mi]||0;
+    const mx=Math.max(ibU,invU,obU);
+    const fn = mx===ibU?'IB':mx===invU?'INV':'OB';
+    return {fn, val:mx, fnFull:fn==='IB'?'Inbound':fn==='INV'?'Inventory':'Outbound'};
+  }
+
+  // Rows: one section per metric type, one column per WH
+  const METRICS = [
+    {
+      section: '📊 UTILISATION — AVG ADO UTIL',
+      rows: [
+        { label:'Inbound Avg Util',    fmt: wh => { const v=WH[wh].ib.avgUtil; return v.map(x=>fmtP(x/100)); } },
+        { label:'Inventory Avg CBM Util', fmt: wh => { const v=WH[wh].inv.avgUtil; return v.map(x=>fmtP(x/100)); } },
+        { label:'Outbound Avg Util',   fmt: wh => { const v=WH[wh].ob.avgUtil; return v.map(x=>fmtP(x/100)); } },
+      ]
+    },
+    {
+      section: '📊 UTILISATION — PEAK ADO UTIL',
+      rows: [
+        { label:'Inbound Peak Util',   fmt: wh => WH[wh].ib.peakUtil.map(x=>fmtP(x/100)) },
+        { label:'Inventory Peak CBM',  fmt: wh => WH[wh].inv.peakUtil.map(x=>fmtP(x/100)) },
+        { label:'Outbound Peak Util',  fmt: wh => WH[wh].ob.peakUtil.map(x=>fmtP(x/100)) },
+      ]
+    },
+    {
+      section: '⚡ MAX CAPACITY',
+      rows: [
+        { label:'IB Max ADO (qty)',              fmt: wh => WH[wh].ib.maxADO.map(fmtK) },
+        { label:'Inventory Max CBM',             fmt: wh => WH[wh].inv.maxCBM.map(fmtK) },
+        { label:'PO OB Max ADO',                 fmt: wh => WH[wh].ob.maxADO.map(fmtK) },
+        { label:'MTO Max ADO (equiv.)',          fmt: wh => WH[wh].mto.maxADO.map(fmtK) },
+      ]
+    },
+    {
+      section: '🔴 SYSTEM BOTTLENECK',
+      rows: [
+        { label:'Utilisation Bottleneck', isBN:true, fmt: wh => {
+          return WH[wh].months.map((_,mi)=>{
+            const {fn,fnFull}=landSysUtilBN(wh,mi);
+            return `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:${bnBg(fn)}33;color:${bnBg(fn)};border:1px solid ${bnBg(fn)}55;">${fnFull}</span>`;
+          });
+        }}
+      ]
+    },
+  ];
+
+  // Determine max months across all WHs
+  const allMonths = whs.map(wh=>WH[wh].months).sort((a,b)=>b.length-a.length)[0]||[];
+
+  // Build table
+  let t = `<table style="width:100%;border-collapse:collapse;font-size:11px;">`;
+
+  // Header: empty col | WH cols (spanning months)
+  t += `<thead>`;
+  // WH row
+  t += `<tr style="border-bottom:1px solid rgba(255,255,255,.15);">`;
+  t += `<td style="padding:10px 14px;color:rgba(255,255,255,.5);font-size:10px;font-family:var(--mono);width:180px;">Metric</td>`;
+  whs.forEach(wh=>{
+    const mo=WH[wh].months;
+    t += `<td colspan="${mo.length}" style="padding:8px 10px;text-align:center;border-left:1px solid rgba(255,255,255,.15);">
+      <button onclick="selWHLand('${wh}')" style="background:${wh===CUR?'rgba(96,165,250,.3)':'rgba(255,255,255,.08)'};color:${wh===CUR?'#60a5fa':'#c8deff'};border:${wh===CUR?'1.5px solid #60a5fa':'1.5px solid rgba(255,255,255,.2)'};font-family:var(--mono);font-size:13px;font-weight:700;padding:5px 16px;border-radius:8px;cursor:pointer;letter-spacing:1px;" id="land-wh-btn-${wh}">${wh}</button>
+    </td>`;
+  });
+  t += `</tr>`;
+  // Month subheader
+  t += `<tr style="border-bottom:2px solid rgba(255,255,255,.2);">`;
+  t += `<td style="padding:5px 14px;"></td>`;
+  whs.forEach(wh=>{
+    const mo=WH[wh].months;
+    mo.forEach(m=>{
+      t += `<td style="padding:4px 8px;text-align:center;font-size:9px;font-family:var(--mono);color:rgba(255,255,255,.4);letter-spacing:.5px;border-left:${m===mo[0]?'1px solid rgba(255,255,255,.15)':'none'};">${m}</td>`;
+    });
+  });
+  t += `</tr></thead><tbody>`;
+
+  METRICS.forEach(sec=>{
+    // Section header row
+    t += `<tr><td colspan="${1 + whs.reduce((s,w)=>s+WH[w].months.length,0)}" style="padding:8px 14px 4px;background:rgba(255,255,255,.06);font-weight:700;font-size:11px;color:rgba(255,255,255,.8);">${sec.section}</td></tr>`;
+
+    sec.rows.forEach(row=>{
+      t += `<tr style="border-bottom:1px solid rgba(255,255,255,.06);">`;
+      t += `<td style="padding:5px 14px;color:rgba(255,255,255,.6);font-size:11px;">${row.label}</td>`;
+      whs.forEach((wh,wi)=>{
+        const mo = WH[wh].months;
+        const vals = row.fmt(wh);
+        vals.forEach((v,vi)=>{
+          const isFirst = vi===0;
+          t += `<td style="padding:5px 8px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:600;color:rgba(255,255,255,.85);${isFirst?'border-left:1px solid rgba(255,255,255,.12);':''}">${v}</td>`;
+        });
+      });
+      t += `</tr>`;
+    });
+  });
+
+  t += `</tbody></table>`;
+  div.innerHTML = t;
+
+  // Per-WH system insights below the table
+  if(insDiv){
+    const cols = whs.length >= 3 ? `grid-template-columns:repeat(${whs.length},1fr)` : `grid-template-columns:repeat(${whs.length},1fr)`;
+    insDiv.style.gridTemplateColumns = whs.length >= 3 ? `repeat(${whs.length},1fr)` : `repeat(${whs.length},1fr)`;
+
+    insDiv.innerHTML = whs.map(wh=>{
+      const ins = (INSIGHTS_DATA[wh]||{}).system||[];
+      const crit = ((INSIGHTS_DATA[wh]||{}).INV||{}).insights||[];
+      const allIns = [...ins, ...crit.filter(i=>i.sev==='danger')];
+      if(!allIns.length) return '';
+      return `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:10px;font-family:var(--mono);letter-spacing:1px;">${wh} — Critical Findings</div>
+        ${allIns.slice(0,3).map(i=>{
+          const c=i.sev==='danger'?'#fca5a5':i.sev==='warn'?'#fcd34d':'#86efac';
+          return `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);">
+            <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c}22;color:${c};font-family:var(--mono);white-space:nowrap;height:fit-content;margin-top:2px;">${i.cat}</span>
+            <span style="font-size:10px;color:rgba(255,255,255,.7);line-height:1.55;">${i.text.replace(/<[^>]+>/g,'').substring(0,200)}${i.text.length>200?'…':''}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('');
+  }
+}
+
+function selWHLand(wh){
+  // Update selected WH + highlight button
+  CUR = wh;
+  document.querySelectorAll('[id^="land-wh-btn-"]').forEach(b=>{
+    const w=b.id.replace('land-wh-btn-','');
+    b.style.background = w===wh?'rgba(96,165,250,.3)':'rgba(255,255,255,.08)';
+    b.style.color = w===wh?'#60a5fa':'#c8deff';
+    b.style.border = w===wh?'1.5px solid #60a5fa':'1.5px solid rgba(255,255,255,.2)';
+  });
+  // Also update wh-btn on landing if visible
+  document.querySelectorAll('.wh-btn').forEach(b=>b.classList.toggle('sel',b.dataset.wh===wh));
+}
+
+
+// ══════════════════════════════════════════════════
+// SHELL OVERVIEW TAB — all WHs in dashboard theme
+// ══════════════════════════════════════════════════
+let shellOverviewBuilt = false;
+function buildShellOverview(){
+  if(shellOverviewBuilt){ updateOvWHChips(); return; }
+  shellOverviewBuilt = true;
+
+  const div = document.getElementById('shell-overview');
+  const insDiv = document.getElementById('shell-insights');
+  if(!div) return;
+
+  const whs = Object.keys(WH);
+  const fmtK = v => v>0?(v>=1000?(v/1000).toFixed(1)+'K':Math.round(v)+''):'—';
+  const fmtP = v => v>0?(v*100).toFixed(1)+'%':'—';
+  const fnC  = fn => fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)';
+  const fnFull = fn => fn==='IB'?'Inbound':fn==='INV'?'Inventory':'Outbound';
+
+  function sysUtilBNshell(wh,mi){
+    const d=WH[wh];
+    const ibU=d.ib.avgUtil[mi]||0, invU=d.inv.avgUtil[mi]||0, obU=d.ob.avgUtil[mi]||0;
+    const mx=Math.max(ibU,invU,obU);
+    return mx===ibU?'IB':mx===invU?'INV':'OB';
+  }
+
+  // Build one table per WH (side by side via grid)
+  const whCols = whs.length >= 3 ? `repeat(${whs.length},1fr)` : `repeat(${whs.length},1fr)`;
+  let t = `<div style="display:grid;grid-template-columns:${whCols};gap:0;overflow-x:auto;">`;
+
+  whs.forEach((wh,wi)=>{
+    const d = WH[wh];
+    const mo = d.months;
+    const borderL = wi>0?'border-left:2px solid var(--border2);':'';
+    t += `<div style="${borderL}">`;
+    // WH header
+    t += `<div style="padding:12px 16px;background:var(--surface3);border-bottom:2px solid var(--border2);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ib);">${wh}</span>
+      <div style="display:flex;gap:4px;">
+        ${mo.map(m=>`<span style="font-size:9px;font-family:var(--mono);color:var(--muted);background:var(--surface2);padding:1px 5px;border-radius:4px;">${m}</span>`).join('')}
+      </div>
+    </div>`;
+
+    // Sections
+    const SECS = [
+      { label:'📊 Avg Util', rows:[
+        { lbl:'Inbound',   vals: d.ib.avgUtil,  fmt: v=>fmtP(v/100), warn:90, lo:80 },
+        { lbl:'Inventory', vals: d.inv.avgUtil,  fmt: v=>fmtP(v/100), warn:90, lo:82 },
+        { lbl:'Outbound',  vals: d.ob.avgUtil,   fmt: v=>fmtP(v/100), warn:90, lo:80 },
+      ]},
+      { label:'📊 Peak Util', rows:[
+        { lbl:'Inbound',   vals: d.ib.peakUtil,  fmt: v=>fmtP(v/100), warn:100, lo:90 },
+        { lbl:'Inventory', vals: d.inv.peakUtil,  fmt: v=>fmtP(v/100), warn:95, lo:90 },
+        { lbl:'Outbound',  vals: d.ob.peakUtil,   fmt: v=>fmtP(v/100), warn:100, lo:85 },
+      ]},
+      { label:'⚡ Max Capacity', rows:[
+        { lbl:'IB Max ADO (qty)',       vals: d.ib.maxADO,    fmt: fmtK },
+        { lbl:'Inventory Max CBM',      vals: d.inv.maxCBM,   fmt: fmtK },
+        { lbl:'PO OB Max ADO',          vals: d.ob.maxADO,    fmt: fmtK },
+        { lbl:'MTO Max ADO (equiv.)',   vals: d.mto.maxADO,   fmt: fmtK },
+      ]},
+      { label:'🔴 Util Bottleneck', isBN:true, rows:[
+        { lbl:'Function', isBN:true, vals: mo.map((_,mi)=>sysUtilBNshell(wh,mi)) },
+      ]},
+    ];
+
+    SECS.forEach(sec=>{
+      t += `<div style="padding:6px 14px 2px;background:var(--surface2);font-size:10px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border);">${sec.label}</div>`;
+      sec.rows.forEach(row=>{
+        const cells = row.vals.map((v,vi)=>{
+          let disp, c='var(--text)';
+          if(row.isBN){
+            const fn=v; const fc=fnC(fn);
+            disp=`<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:${fc}22;color:${fc};border:1px solid ${fc}44;">${fnFull(fn)}</span>`;
+          } else {
+            disp = row.fmt ? row.fmt(v) : v;
+            const num = typeof v==='number'?v:parseFloat(v)||0;
+            if(row.warn && num>=row.warn) c='var(--danger)';
+            else if(row.lo && num>=row.lo) c='var(--warn)';
+          }
+          return `<td style="padding:4px 6px;text-align:right;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;font-weight:600;color:${c};">${disp}</td>`;
+        }).join('');
+        t += `<table style="width:100%;border-collapse:collapse;"><tr>
+          <td style="padding:4px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;">${row.lbl}</td>
+          ${cells}
+        </tr></table>`;
+      });
+    });
+
+    t += `</div>`;
+  });
+
+  t += `</div>`;
+  div.innerHTML = t;
+
+  // Per-WH critical findings
+  if(insDiv){
+    insDiv.style.gridTemplateColumns = whs.length >= 3 ? `repeat(${whs.length},1fr)` : `repeat(${whs.length},1fr)`;
+    insDiv.innerHTML = whs.map(wh=>{
+      const ins = (INSIGHTS_DATA[wh]||{}).system||[];
+      const crit = ((INSIGHTS_DATA[wh]||{}).INV||{}).insights||[];
+      const allIns = [...ins,...crit.filter(i=>i.sev==='danger')];
+      if(!allIns.length) return `<div></div>`;
+      const sevC = {danger:'var(--danger)',warn:'var(--warn)',ok:'var(--ok)'};
+      const sevBg = {danger:'#fdeaea',warn:'#fff3e0',ok:'#e6f5ed'};
+      return `<div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;font-family:var(--mono);">${wh} — Critical Findings</div>
+        ${allIns.slice(0,3).map(i=>`
+          <div class="si-row" style="border-left-color:${sevC[i.sev]};background:${sevBg[i.sev]}44;margin-bottom:6px;">
+            <span class="si-tag" style="background:${sevC[i.sev]}22;color:${sevC[i.sev]};">${i.cat}</span>
+            <span class="si-text">${i.text.replace(/<[^>]+>/g,'').substring(0,220)}${i.text.length>220?'…':''}</span>
+          </div>`).join('')}
+      </div>`;
+    }).join('');
+  }
+
+  updateOvWHChips();
+}
+
+function updateOvWHChips(){
+  const el = document.getElementById('ov-wh-chips');
+  if(!el) return;
+  el.innerHTML = Object.keys(WH).map(w=>`
+    <button onclick="selWHLand('${w}');document.querySelectorAll('.wh-btn').forEach(b=>b.classList.toggle('sel',b.dataset.wh==='${w}'));"
+      style="font-family:var(--mono);font-size:11px;font-weight:700;padding:5px 16px;border-radius:8px;cursor:pointer;border:2px solid ${w===CUR?'var(--ib)':'var(--border2)'};background:${w===CUR?'var(--ib-l)':'var(--surface)'};color:${w===CUR?'var(--ib)':'var(--muted)'};">${w}</button>
+  `).join('');
+}
+
 // ══════════════════════════════════════════════════
 // DYNAMIC WH SETUP — works with any number of WHs
 // ══════════════════════════════════════════════════
 function buildLandingWHGrid(){
-  // Called on page load — builds WH buttons from WH data object
   const grid = document.getElementById('whGrid');
   if(!grid) return;
   const whs = Object.keys(WH);
   grid.innerHTML = whs.map((w,i) =>
-    `<button class="wh-btn${i===0?' sel':''}" data-wh="${w}" onclick="selWH(this)">${w}</button>`
+    `<button class="wh-btn${i===0?' sel':''}" data-wh="${w}" onclick="selWHLand('${w}');selWH(this);">${w}</button>`
   ).join('');
-  // Set default CUR to first WH
   CUR = whs[0];
+  // Build the landing overview table
+  buildLandingOverview();
 }
 
 // ══════════════════════════════════════════════════
@@ -2631,7 +2992,7 @@ function openSummaryModal(){
     const fnIns = ins[fn];
     if(!fnIns) return;
     const fnC  = fn==='IB'?'#1a6fd4':fn==='INV'?'#c75b00':'#1a7a4a';
-    const fnLb = fn==='IB'?'📦 Inbound (IB)':fn==='INV'?'🏭 Inventory (INV)':'📤 Outbound (OB)';
+    const fnLb = fn==='IB'?'📦 Inbound (IB)':fn==='INV'?'🏭 Inventory':'📤 Outbound (OB)';
 
     if(fnIns.insights && fnIns.insights.length){
       html += secHd(fn==='IB'?'📦':fn==='INV'?'🏭':'📤', `${fn} Insights`, fnC);

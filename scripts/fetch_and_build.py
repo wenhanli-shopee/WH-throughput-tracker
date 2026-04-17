@@ -1,5 +1,5 @@
 """
-fetch_and_build.py  (v4)
+fetch_and_build.py  (v5 — adds ib_uplift R60, ob_uplift R50)
 ────────────────────────
 - Reads months automatically from Monthly Tracker C2:F2
 - Takes the 4 most recent "Actual" months (skips Projection columns)
@@ -278,6 +278,7 @@ def read_monthly_tracker(ws):
         'ib_wait_put':   grsf(71),
         'ib_put_hrs':    grsf(73),
         'ib_items_put':  grsf(74),
+        'ib_uplift':     grsf(60),   # Monthly Tracker R60 — IB campaign uplift ratio
         'inv_ior':       grsf(45),
         'inv_doc':       grsf(46),
         'inv_cbm_pcs':   grsf(47),
@@ -286,6 +287,7 @@ def read_monthly_tracker(ws):
         'ob_pack':       grsf(107),
         'ob_sort_pct':   grsf(103),
         'ob_items_pal':  grsf(115),
+        'ob_uplift':     grsf(50),   # Monthly Tracker R50 — OB ADO uplift ratio
     }
 
     # Build ibSteps / obSteps as month-keyed dicts
@@ -474,8 +476,8 @@ def fetch_all():
 
     for idx, (wh, sid) in enumerate(cfg.items()):
         if idx > 0:
-            print(f"  Waiting 30s before {wh} (rate limit buffer)...")
-            time.sleep(30)
+            print(f"  Waiting 60s before {wh} (rate limit buffer)...")
+            time.sleep(60)
 
         print(f"\nReading {wh} ({sid[:8]}...)")
         sh = open_sheet(gc, sid)
@@ -610,7 +612,7 @@ def inject(all_bm, all_wh):
 # ─── Entry point ──────────────────────────────────────────────────────
 if __name__ == '__main__':
     print("=" * 55)
-    print("WH Throughput Tracker — GSheet → HTML Builder v4")
+    print("WH Throughput Tracker — GSheet → HTML Builder v5")
     print("=" * 55)
     all_bm, all_wh = fetch_all()
     inject(all_bm, all_wh)
