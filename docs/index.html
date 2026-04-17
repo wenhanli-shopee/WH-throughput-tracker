@@ -1044,7 +1044,9 @@ function loadAll(){
 // ══════════════════════════════════════════════════
 let BR=null;// benchmark result cached
 function buildBenchResult(){
-  BR=calcSys(bParams());
+  // Use BM directly — never read from DOM inputs for benchmark calculation.
+  // bParams() reads DOM inputs which can be stale/zero when switching WH.
+  BR=calcSys(JSON.parse(JSON.stringify(BM)));
   // Each chip: if this function IS the system bottleneck, show red with ▲ System Bottleneck
   function chip(fn, val, sub){
     const isBN = fn===BR.sysFn;
@@ -1244,15 +1246,15 @@ function buildSubpages(){
           ${d.months.map((m,i)=>`<div class="apc-chip"><div class="apc-mo">${m}</div><div class="apc-v">${fK(caps[i]||0)}</div></div>`).join('')}
         </div>`;
       } else if(curFn==='IB' && curSi!==null){
-        const steps=[d.ibSteps.jan,d.ibSteps.feb,d.ibSteps.mar,d.ibSteps.apr||[]];
         const mnths=d.months;
+        const steps=mnths.map(m=>{const mk=m.substring(0,3).toLowerCase();return d.ibSteps[mk]||[];});
         pastCaps=`<div class="acc-past-caps">
           <span class="apc-label">Step Max ADO</span>
           ${mnths.map((m,i)=>`<div class="apc-chip"><div class="apc-mo">${m}</div><div class="apc-v">${steps[i]&&steps[i][curSi]!=null?fK(steps[i][curSi]):'—'}</div></div>`).join('')}
         </div>`;
       } else if(curFn==='OB' && curSi!==null){
-        const steps=[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar,d.obSteps.apr||[]];
         const mnths=d.months;
+        const steps=mnths.map(m=>{const mk=m.substring(0,3).toLowerCase();return d.obSteps[mk]||[];});
         pastCaps=`<div class="acc-past-caps">
           <span class="apc-label">Step Max ADO</span>
           ${mnths.map((m,i)=>`<div class="apc-chip"><div class="apc-mo">${m}</div><div class="apc-v">${steps[i]&&steps[i][curSi]!=null?fK(steps[i][curSi]):'—'}</div></div>`).join('')}
@@ -1263,7 +1265,7 @@ function buildSubpages(){
       if(curFn==='IB'&&curSi!==null){
         const d=WH[CUR];
         const bmCap=curSi===0?BM.bm_ib_staging:curSi===1?BM.bm_ib_recv:BM.bm_ib_putaway;
-        const steps=[d.ibSteps.jan,d.ibSteps.feb,d.ibSteps.mar,d.ibSteps.apr||[]];
+        const steps=d.months.map(m=>{const mk=m.substring(0,3).toLowerCase();return d.ibSteps[mk]||[];});
         const actCells=d.months.map((_,i)=>{
           const v=steps[i]&&steps[i][curSi]!=null?steps[i][curSi]:null;
           const delta=v!=null&&bmCap?((v-bmCap)/Math.abs(bmCap)*100):null;
@@ -1283,7 +1285,7 @@ function buildSubpages(){
         const d=WH[CUR];
         const bmCaps=[BM.bm_ob_sorting,BM.bm_ob_packing,BM.bm_ob_presort,BM.bm_ob_staging];
         const bmCap=bmCaps[curSi];
-        const steps=[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar,d.obSteps.apr||[]];
+        const steps=d.months.map(m=>{const mk=m.substring(0,3).toLowerCase();return d.obSteps[mk]||[];});
         const actCells=d.months.map((_,i)=>{
           const v=steps[i]&&steps[i][curSi]!=null?steps[i][curSi]:null;
           const delta=v!=null&&bmCap?((v-bmCap)/Math.abs(bmCap)*100):null;
@@ -1690,9 +1692,10 @@ function buildAnaCharts(){
   // IB Steps
   const ibSC=['rgba(26,111,212,.7)','rgba(212,43,43,.75)','rgba(90,157,232,.55)'];
   const ibSL=['Arrival Staging','Receiving','Putaway'];
-  const ibSD=[[d.ibSteps.jan[0],d.ibSteps.feb[0],d.ibSteps.mar[0]],
-              [d.ibSteps.jan[1],d.ibSteps.feb[1],d.ibSteps.mar[1]],
-              [d.ibSteps.jan[2],d.ibSteps.feb[2],d.ibSteps.mar[2]]];
+  const ibMK=d.months.slice(0,3).map(m=>m.substring(0,3).toLowerCase());
+  const ibSD=[[0,1,2].map(si=>ibMK.map(mk=>(d.ibSteps[mk]||[])[0]||0)),
+              [0,1,2].map(si=>ibMK.map(mk=>(d.ibSteps[mk]||[])[1]||0)),
+              [0,1,2].map(si=>ibMK.map(mk=>(d.ibSteps[mk]||[])[2]||0))];
   mkC('cIBs','bar',{labels:MO,datasets:ibSL.map((l,i)=>({label:l,data:ibSD[i],backgroundColor:ibSC[i],borderRadius:3,barPercentage:.7,categoryPercentage:.85}))},{scales:{x:XS,y:mkY('Daily ADO',0,Math.ceil(Math.max(...ibSD.flat())*1.2/50000)*50000)}});
 
   // IB Factor impact
@@ -1726,7 +1729,8 @@ function buildAnaCharts(){
   // OB Steps
   const obSC=['rgba(26,122,74,.65)','rgba(212,43,43,.75)','rgba(74,170,116,.55)','rgba(26,122,74,.4)'];
   const obSL=['Sorting','Packing','Pre-sorting','PO Staging'];
-  const obSD=obSL.map((_,si)=>MO.map((_,mi)=>[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar][mi][si]));
+  const obMK2=d.months.slice(0,3).map(m=>m.substring(0,3).toLowerCase());
+  const obSD=obSL.map((_,si)=>obMK2.map(mk=>(d.obSteps[mk]||[])[si]||0));
   mkC('cOBs','bar',{labels:MO,datasets:obSL.map((l,si)=>({label:l,data:obSD[si],backgroundColor:obSC[si],borderRadius:3,barPercentage:.7,categoryPercentage:.85}))},{scales:{x:XS,y:mkY('Daily ADO',0,Math.ceil(Math.max(...obSD.flat())*1.2/50000)*50000)}});
 
   // OB prod
@@ -2448,16 +2452,19 @@ function buildFnContent(fn){
     </tr>`;
   }
 
-  // helper: get step actuals from ibSteps/obSteps arrays
+  // helper: get step actuals from ibSteps/obSteps using dynamic month keys
+  // mo = ['Jan-26','Feb-26',...] — convert to 'jan','feb',... to look up step dict
   function ibStepActuals(si){
-    return mo.map((_,mi)=>{
-      const arr=[d.ibSteps.jan,d.ibSteps.feb,d.ibSteps.mar,(d.ibSteps.apr||[])][mi];
+    return mo.map(m=>{
+      const mk=m.substring(0,3).toLowerCase();
+      const arr=d.ibSteps[mk];
       return arr&&arr[si]!=null?arr[si]:null;
     });
   }
   function obStepActuals(si){
-    return mo.map((_,mi)=>{
-      const arr=[d.obSteps.jan,d.obSteps.feb,d.obSteps.mar,(d.obSteps.apr||[])][mi];
+    return mo.map(m=>{
+      const mk=m.substring(0,3).toLowerCase();
+      const arr=d.obSteps[mk];
       return arr&&arr[si]!=null?arr[si]:null;
     });
   }

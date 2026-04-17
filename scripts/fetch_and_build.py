@@ -517,10 +517,12 @@ def fetch_all():
         data['name'] = wh
         all_wh[wh] = data
 
-        print(f"  ✓ {wh}: months={data['months']}  "
-              f"bm_ib={bm.get('bm_ib',0):.0f}  "
-              f"bm_ob={bm.get('bm_ob',0):.0f}  "
-              f"sqm={bm.get('sqm',0):.0f}")
+        act = data.get('act') or {}
+        ib_up = act.get('ib_uplift', [])
+        ob_up = act.get('ob_uplift', [])
+        print(f"  ✓ {wh}: months={data['months']}")
+        print(f"    bm_ib={bm.get('bm_ib',0):.0f}  bm_ob={bm.get('bm_ob',0):.0f}  sqm={bm.get('sqm',0):.0f}")
+        print(f"    ib_uplift={[round(v,3) for v in ib_up]}  ob_uplift={[round(v,3) for v in ob_up]}")
 
     return all_bm, all_wh
 
