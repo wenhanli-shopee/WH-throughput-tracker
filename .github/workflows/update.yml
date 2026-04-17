@@ -12,26 +12,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Fetch GSheet data and build HTML
+      - run: pip install -r requirements.txt
+      - name: Fetch data and build HTML
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           SHEET_ID_PHB:   ${{ secrets.SHEET_ID_PHB }}
           SHEET_ID_PHL:   ${{ secrets.SHEET_ID_PHL }}
           SHEET_ID_PHIXC: ${{ secrets.SHEET_ID_PHIXC }}
         run: python scripts/fetch_and_build.py
-
-      - name: Commit and push updated HTML
+      - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

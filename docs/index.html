@@ -526,10 +526,12 @@ const WH = {
       ib_po_prod:[730.3,786.1,677.7,752.8], ib_mt_prod:[717.9,576.6,411.4,468.8],
       ib_pct_mti:[0.301,0.258,0.227,0.316], ib_wait_put:[2.85,3.83,3.75,3.11],
       ib_put_hrs:[19.22,19.32,19.01,19.09], ib_items_put:[971.0,907.4,879.6,904.6],
+      ib_uplift:[1.556885879, 1.569936994, 1.938092399, 1.589634176],
       inv_ior:[1.443,1.478,1.459,1.434], inv_doc:[25.66,30.20,30.21,25.59],
       inv_cbm_pcs:[0.001112,0.001190,0.001228,0.001194], inv_cbm_util:[0.896,0.883,0.875,0.864],
       ob_pack:[93.6,85.7,87.8,90.4], ob_sort:[237.3,242.1,210.9,178.8],
       ob_sort_pct:[0.1845,0.2030,0.1763,0.1676], ob_items_pal:[1294.7,1209.8,1172.8,1206.1],
+      ob_uplift:[1.314716821, 1.297203363, 1.594514983, 1.183630792],
     },
     bottleneck:'INV',ibBN:'Receiving',obBN:'Packing'},
 
@@ -556,6 +558,7 @@ const WH = {
       inv_cbm_pcs:[0.002435,0.002724,0.002629,0.002757], inv_cbm_util:[0.767,0.910,0.922,0.787],
       ob_pack:[40.6,39.6,46.1,39.4], ob_sort:[262.3,243.5,344.6,278.3],
       ob_sort_pct:[0.2464,0.2241,0.2285,0.2332], ob_items_pal:[591.3,528.6,547.6,522.3],
+      ib_uplift:[0,0,0,0], ob_uplift:[0,0,0,0],
     },
     bottleneck:'OB',ibBN:'Receiving',obBN:'Sorting'},
 
@@ -582,6 +585,7 @@ const WH = {
       inv_cbm_pcs:[0.002640,0.001764,0.001801,0.002223], inv_cbm_util:[0.779,0.903,0.928,0.947],
       ob_pack:[46.7,52.9,50.4,49.5], ob_sort:[49.7,124.9,98.2,86.1],
       ob_sort_pct:[0.0981,0.1726,0.1266,0.0962], ob_items_pal:[545.4,816.3,799.5,647.7],
+      ib_uplift:[0,0,0,0], ob_uplift:[0,0,0,0],
     },
     bottleneck:'OB',ibBN:'Receiving',obBN:'Sorting'},
 
@@ -1041,12 +1045,24 @@ function loadAll(){
 let BR=null;// benchmark result cached
 function buildBenchResult(){
   BR=calcSys(bParams());
-  const fnC=fn=>fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)';
-  const sC=fnC(BR.sysFn);
-  document.getElementById('bench-chips').innerHTML=chipHTML('IB',BR.ib,BR.ibBN.split(' ')[0],'var(--ib)','var(--ib-l)','1px solid #b8d4f8')+
-    chipHTML('INV',BR.inv,'','var(--inv)','var(--inv-l)','1px solid #f0c8a0')+
-    chipHTML('OB',BR.ob,BR.obBN.split(' ')[0],'var(--ob)','var(--ob-l)','1px solid #a8d8bc')+
-    chipHTML('SYS BN',BR.sys,BR.sysFn,sC,'linear-gradient(135deg,#f0f4ff,#e8f2ff)',`2px solid ${sC}`);
+  // Each chip: if this function IS the system bottleneck, show red with ▲ System Bottleneck
+  function chip(fn, val, sub){
+    const isBN = fn===BR.sysFn;
+    const c   = isBN?'#b91c1c':(fn==='IB'?'var(--ib)':fn==='INV'?'var(--inv)':'var(--ob)');
+    const bg  = isBN?'#fde8e8':(fn==='IB'?'var(--ib-l)':fn==='INV'?'var(--inv-l)':'var(--ob-l)');
+    const brd = isBN?'2px solid #f87171':(fn==='IB'?'1px solid #b8d4f8':fn==='INV'?'1px solid #f0c8a0':'1px solid #c4b5f8');
+    const bnBadge = isBN?`<div style="font-size:8px;font-weight:700;color:#b91c1c;margin-top:2px;">▲ System Bottleneck</div>`:'';
+    return `<div class="r-chip" style="background:${bg};border:${brd};">
+      <div class="fn" style="color:${c};">${fn}</div>
+      <div class="v" style="color:${c};">${fK(val)}</div>
+      <div class="d" style="color:${c};">${sub||'&nbsp;'}</div>
+      ${bnBadge}
+    </div>`;
+  }
+  document.getElementById('bench-chips').innerHTML=
+    chip('IB',BR.ib,BR.ibBN.split(' ')[0])+
+    chip('INV',BR.inv,'')+
+    chip('OB',BR.ob,BR.obBN.split(' ')[0]);
   // also fill in step result cells with benchmark
   fillStepResults(BR,null);
 }
@@ -1076,10 +1092,9 @@ function runSim(){
   const sC=MR.sysFn==='IB'?'var(--ib)':MR.sysFn==='INV'?'var(--inv)':'var(--ob)';
   showModResultWrap();
   document.getElementById('mod-chips').innerHTML=
-    chipDelta('IB',MR.ib,BR.ib,'var(--ib)','var(--ib-l)','1px solid #b8d4f8')+
-    chipDelta('INV',MR.inv,BR.inv,'var(--inv)','var(--inv-l)','1px solid #f0c8a0')+
-    chipDelta('OB',MR.ob,BR.ob,'var(--ob)','var(--ob-l)','1px solid #a8d8bc')+
-    chipDelta('SYS BN',MR.sys,BR.sys,sC,'linear-gradient(135deg,#f0f4ff,#e8f2ff)',`2px solid ${sC}`);
+    chipDelta('IB',MR.ib,BR.ib,MR.sysFn==='IB'?'#b91c1c':'var(--ib)',MR.sysFn==='IB'?'#fde8e8':'var(--ib-l)',MR.sysFn==='IB'?'2px solid #f87171':'1px solid #b8d4f8')+
+    chipDelta('INV',MR.inv,BR.inv,MR.sysFn==='INV'?'#b91c1c':'var(--inv)',MR.sysFn==='INV'?'#fde8e8':'var(--inv-l)',MR.sysFn==='INV'?'2px solid #f87171':'1px solid #f0c8a0')+
+    chipDelta('OB',MR.ob,BR.ob,MR.sysFn==='OB'?'#b91c1c':'var(--ob)',MR.sysFn==='OB'?'#fde8e8':'var(--ob-l)',MR.sysFn==='OB'?'2px solid #f87171':'1px solid #c4b5f8');
   fillStepResults(MR,BR);
 }
 function fillStepResults(r,bench){
@@ -2293,13 +2308,12 @@ function buildOverviewTable(){
   h+=dataRow('OB Peak Util','%',d.ob.peakUtil,v=>pf(v/100),v=>vc(v,100,85));
 
   // ── Max Capacity
-  h+=secRow('⚡ MAX CAPACITY &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Actual monthly max ADO based on real ops performance</span>');
-  h+=dataRow('IB Max ADO','K',d.ib.maxADO,fmtK);
-  h+=dataRow('INV Max ADO','K',d.inv.maxADO,fmtK);
-  h+=dataRow('OB Max ADO (PO)','K',d.ob.maxADO,fmtK);
-  // OB Design ADO (fixed)
-  const designOB=d.theo.obADO;
-  h+=`<tr class="ov-row"><td class="ov-metric">OB Design ADO</td><td class="ov-sub">K (fixed benchmark)</td>${mo.map(()=>`<td class="ov-val" style="color:var(--muted);font-size:11px;">${fmtK(designOB)}</td>`).join('')}</tr>`;
+  const unitTag=(t,c)=>`<span style="font-size:8px;font-weight:700;font-family:var(--mono);padding:1px 4px;border-radius:3px;background:${c}22;color:${c};margin-left:4px;">${t}</span>`;
+  h+=secRow('⚡ MAX CAPACITY &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">Actual monthly max based on ops performance</span>');
+  h+=dataRow(`IB Max ADO ${unitTag('qty','var(--ib)')}`, '', d.ib.maxADO, fmtK);
+  h+=dataRow(`Inventory Max CBM ${unitTag('CBM','var(--inv)')}`, '', d.inv.maxCBM&&d.inv.maxCBM.length?d.inv.maxCBM:d.inv.maxADO, fmtK);
+  h+=dataRow(`PO OB Max ADO ${unitTag('ADO','var(--ob)')}`, '', d.ob.maxADO, fmtK);
+  h+=dataRow(`MTO Max ADO ${unitTag('equiv.','var(--ob)')}`, '', d.mto.maxADO, fmtK);
 
   // ── System Bottleneck
   h+=secRow('🔴 SYSTEM UTILISATION BOTTLENECK &nbsp;<span style="font-weight:400;font-size:10px;color:var(--muted);">The function with the highest utilisation is considered the bottleneck, which may suggest a potential need for additional space, subject to validation.</span>');
@@ -2471,7 +2485,9 @@ function buildFnContent(fn){
     h += facRow('PO Recv Prod (items/hr)', BM.po_prod,  'ib_po_prod', false);
     h += facRow('MT Recv Prod (items/hr)', BM.mt_prod,  'ib_mt_prod', false);
     h += facRow('% MTI',                   BM.pct_mti,  'ib_pct_mti', true);
-    h += facRow('Recv Hours / Day',        BM.r_hrs,    'ib_put_hrs', false); // proxy
+    h += facRow('Recv Hours / Day',        BM.r_hrs,    'ib_put_hrs', false);
+    h += facRow('IOR',                     BM.ib_ior,   'inv_ior',    true);
+    h += facRow('IB Uplift Ratio',         null,        'ib_uplift',  false);
 
     // ── Putaway: capacity row then factors ──
     const ibPutBN = d.ibBN==='Putaway';
@@ -2479,6 +2495,8 @@ function buildFnContent(fn){
     h += facRow('Putaway Wait (hr)',       BM.s3_wait,  'ib_wait_put', true);
     h += facRow('Putaway Hrs / Day',       BM.s3_hrs,   'ib_put_hrs', false);
     h += facRow('Items / Pallet (put)',    BM.s3_items,  'ib_items_put', false);
+    h += facRow('IOR',                     BM.ib_ior,   'inv_ior',    true);
+    h += facRow('IB Uplift Ratio',         null,        'ib_uplift',  false);
 
   } else if(fn==='INV'){
     const bmINVcbm=Math.round(BM.sqm*(BM.cbm_sqm||0.38));
@@ -2529,14 +2547,20 @@ function buildFnContent(fn){
     // ── Packing ──
     h += stepCapRow('Packing', BM.bm_ob_packing, obStepActuals(1), obBNstep==='Packing');
     h += facRow('Pack Prod (items/hr)', BM.pack_prod, 'ob_pack', false);
+    h += facRow('OB IOR',               BM.ob_ior,   'inv_ior',  true);
+    h += facRow('OB Uplift Ratio',      null,        'ob_uplift', false);
 
     // ── Pre-sorting ──
     h += stepCapRow('Pre-sorting', BM.bm_ob_presort, obStepActuals(2), obBNstep==='Pre-sorting');
     h += facRow('Presort Prod (orders/hr)', BM.pre_prod, null, false);
+    h += facRow('OB IOR',               BM.ob_ior,   'inv_ior',  true);
+    h += facRow('OB Uplift Ratio',      null,        'ob_uplift', false);
 
     // ── PO Staging ──
     h += stepCapRow('PO Staging', BM.bm_ob_staging, obStepActuals(3), obBNstep==='PO Staging');
     h += facRow('Items / Staging Pallet', BM.stg_items, 'ob_items_pal', false);
+    h += facRow('OB IOR',               BM.ob_ior,   'inv_ior',  true);
+    h += facRow('OB Uplift Ratio',      null,        'ob_uplift', false);
   }
 
   h+='</tbody></table></div></div>';
